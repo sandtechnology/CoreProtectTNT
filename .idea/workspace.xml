@@ -2,52 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ab86340a-f0e9-4624-ab11-7f54cd5099b4" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/Ghost_chu.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/CoreProtectTNT.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/CoreProtect-2.17.5 (2).jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/CoreProtectTNT/ExplodeChain.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/CoreProtectTNT/Main.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/config.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/plugin.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/CoreProtectTNT-1.0-SNAPSHOT-javadoc.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/CoreProtectTNT-1.0-SNAPSHOT-shaded.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/CoreProtectTNT-1.0-SNAPSHOT-sources.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/CoreProtectTNT-1.0-SNAPSHOT.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/allclasses-frame.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/allclasses-noframe.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/com/mcsunnyside/CoreProtectTNT/ExplodeChain.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/com/mcsunnyside/CoreProtectTNT/Main.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/com/mcsunnyside/CoreProtectTNT/class-use/ExplodeChain.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/com/mcsunnyside/CoreProtectTNT/class-use/Main.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/com/mcsunnyside/CoreProtectTNT/package-frame.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/com/mcsunnyside/CoreProtectTNT/package-summary.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/com/mcsunnyside/CoreProtectTNT/package-tree.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/com/mcsunnyside/CoreProtectTNT/package-use.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/constant-values.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/deprecated-list.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/help-doc.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/index-all.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/overview-tree.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/package-list" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/script.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/apidocs/stylesheet.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/classes/com/mcsunnyside/CoreProtectTNT/ExplodeChain$ExplodeChainBuilder.class" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/classes/com/mcsunnyside/CoreProtectTNT/ExplodeChain.class" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/classes/com/mcsunnyside/CoreProtectTNT/Main.class" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/classes/plugin.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/javadoc-bundle-options/javadoc-options-javadoc-resources.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/javadoc-bundle-options/package-list" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/maven-archiver/pom.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/inputFiles.lst" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/original-CoreProtectTNT-1.0-SNAPSHOT.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <ignored path="$PROJECT_DIR$/out/" />
     <ignored path="$PROJECT_DIR$/target/" />
@@ -157,10 +112,10 @@
     </treeState>
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="-9" />
-    <option name="y" value="-9" />
-    <option name="width" value="1385" />
-    <option name="height" value="745" />
+    <option name="x" value="280" />
+    <option name="y" value="505" />
+    <option name="width" value="1380" />
+    <option name="height" value="740" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
@@ -261,18 +216,18 @@
       <option name="presentableId" value="Default" />
       <updated>1563763371182</updated>
       <workItem from="1563763374237" duration="10965000" />
-      <workItem from="1563877498551" duration="624000" />
+      <workItem from="1563877498551" duration="895000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="11589000" />
+    <option name="totallyTimeSpent" value="11860000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-7" y="-7" width="1550" height="838" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.22654155" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.22654155" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Designer" order="2" />
       <window_info id="UI Designer" order="3" />
@@ -287,7 +242,7 @@
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Database Changes" order="9" />
-      <window_info anchor="bottom" id="Terminal" order="10" visible="true" weight="0.26770538" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="10" visible="true" weight="0.26770538" />
       <window_info anchor="bottom" id="Event Log" order="11" side_tool="true" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
