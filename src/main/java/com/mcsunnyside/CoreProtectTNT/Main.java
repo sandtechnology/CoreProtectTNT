@@ -102,8 +102,6 @@ public class Main extends JavaPlugin implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onExplode(EntityExplodeEvent e) {
         Entity tnt = e.getEntity();
-        if (tnt.getType() != EntityType.PRIMED_TNT)
-            return;
         List<Block> blockList = e.blockList();
         if (blockList.isEmpty())
             return;
