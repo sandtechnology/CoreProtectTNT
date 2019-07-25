@@ -79,7 +79,7 @@ public class Main extends JavaPlugin implements Listener {
         Entity tnt = e.getIgnitingEntity();
         if (tnt == null)
             return;
-        if (tnt.getType() == EntityType.PRIMED_TNT) {
+        if(tnt instanceof TNTPrimed){
             ArrayList<ExplodeChain> pendingRemove = new ArrayList<>();
             for (ExplodeChain chain : set) {
                 if (chain.getTntEntity().getUniqueId() == tnt.getUniqueId()) {
@@ -98,7 +98,6 @@ public class Main extends JavaPlugin implements Listener {
             return;
         }
     }
-
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onExplode(EntityExplodeEvent e) {
         Entity tnt = e.getEntity();
@@ -106,28 +105,28 @@ public class Main extends JavaPlugin implements Listener {
         if (blockList.isEmpty())
             return;
         List<ExplodeChain> pendingRemoval = new ArrayList<>();
-        switch (tnt.getType()) {
-            case PRIMED_TNT:
-                if(!getConfig().getBoolean("tnt"))
-                    return;
-                for (ExplodeChain chain : set) {
-                    if (chain.getTntEntity().getUniqueId() != tnt.getUniqueId())
-                        continue;
-                    for (Block block : blockList) {
-                        api.logRemoval("#[TNT]" + chain.getUser(), block.getLocation(), block.getType(), block.getBlockData());
-                    }
-                    pendingRemoval.add(chain);
-                    break;
+        if(tnt instanceof TNTPrimed){
+            if(!getConfig().getBoolean("tnt"))
+                return;
+            for (ExplodeChain chain : set) {
+                if (chain.getTntEntity().getUniqueId() != tnt.getUniqueId())
+                    continue;
+                for (Block block : blockList) {
+                    api.logRemoval("#[TNT]" + chain.getUser(), block.getLocation(), block.getType(), block.getBlockData());
                 }
-            case CREEPER:
-                if(!getConfig().getBoolean("creeper"))
-                    return;
-                Creeper creeper = (Creeper) tnt;
-                LivingEntity creeperTarget = creeper.getTarget();
-                if (creeperTarget != null)
-                    for (Block block : blockList) {
-                        api.logRemoval("#[Creeper]" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
-                    }
+                pendingRemoval.add(chain);
+                break;
+            }
+        }
+        if(tnt instanceof Creeper){
+            if(!getConfig().getBoolean("creeper"))
+                return;
+            Creeper creeper = (Creeper) tnt;
+            LivingEntity creeperTarget = creeper.getTarget();
+            if (creeperTarget != null)
+                for (Block block : blockList) {
+                    api.logRemoval("#[Creeper]" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
+                }
         }
         set.removeAll(pendingRemoval);
         pendingRemoval.clear();
