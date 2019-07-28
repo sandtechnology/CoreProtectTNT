@@ -1,2 +1,9 @@
-tnt: true
-creeper: true
+tnt:
+  log: true
+  disable-when-target-not-found: true
+creeper:
+  log: true
+  disable-when-target-not-found: true
+msgs:
+  tnt-wont-break-blocks: "§cThis TNT explode won't break any blocks cause it not trigged by player."
+  creeper-wont-break-blocks: "§cThis Creeper explode won't break any blocks cause it not trigged by player."
