@@ -4,6 +4,13 @@ tnt:
 creeper:
   log: true
   disable-when-target-not-found: true
+endercrystal:
+  log: true
+  disable-when-target-not-found: true
+fireball:
+  log: true
+  disable-when-target-not-found: true
 msgs:
   tnt-wont-break-blocks: "§cThis TNT explode won't break any blocks cause it not trigged by player."
   creeper-wont-break-blocks: "§cThis Creeper explode won't break any blocks cause it not trigged by player."
+  fireball-wont-break-blocks: "§cThis Fireball explode won't break any blocks cause it not trigged by player."

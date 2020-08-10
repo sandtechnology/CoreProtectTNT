@@ -1,4 +1,4 @@
-package com.mcsunnyside.CoreProtectTNT;
+package com.mcsunnyside.coreprotecttnt;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
@@ -13,6 +13,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
@@ -54,7 +55,7 @@ public class Main extends JavaPlugin implements Listener {
             TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
             Entity source = tntPrimed.getSource();
             if (source == null) {
-               return;
+                return;
             }else{
                 //Bukkti given the args for tnt, direct track it.
                 if (source instanceof Player) {
@@ -149,6 +150,29 @@ public class Main extends JavaPlugin implements Listener {
                 for (Entity entity : entityCollections){
                     if(entity instanceof Player)
                         entity.sendMessage(getConfig().getString("msgs.creeper-wont-break-blocks"));
+                }
+            }
+        }
+        if(tnt instanceof Fireball){
+            if(!getConfig().getBoolean("fireball.log"))
+                return;
+            ProjectileSource source = ((Fireball) tnt).getShooter();
+            if(source == null){
+                if(!getConfig().getBoolean("fireball.disable-when-target-not-found"))
+                    return;
+                Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(),15,15,15);
+                for (Entity entity : entityCollections){
+                    if(entity instanceof Player)
+                        entity.sendMessage(getConfig().getString("msgs.fireball-wont-break-blocks"));
+                }
+            }
+            if(source instanceof Entity) {
+                for (Block block : blockList) {
+                    api.logRemoval("#[Fireball]" + source, block.getLocation(), block.getType(), block.getBlockData());
+                }
+            }else{
+                for (Block block : blockList) {
+                    api.logRemoval("#[Fireball]" + "MissingNo", block.getLocation(), block.getType(), block.getBlockData());
                 }
             }
         }

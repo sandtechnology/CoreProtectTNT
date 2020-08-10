@@ -1,5 +1,4 @@
 *.class
-src/test/
 .settings/
 target/
 .idea/
