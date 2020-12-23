@@ -15,7 +15,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -54,10 +53,8 @@ public class Main extends JavaPlugin implements Listener {
         if (e.getEntity() instanceof TNTPrimed) {
             TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
             Entity source = tntPrimed.getSource();
-            if (source == null) {
-                return;
-            }else{
-                //Bukkti given the args for tnt, direct track it.
+            if (source != null) {
+                //Bukkit given the args for tnt, direct track it.
                 if (source instanceof Player) {
                     set.add(new ExplodeChain(source.getName(), tntPrimed));
                 } else if (source instanceof TNTPrimed) {
@@ -90,7 +87,6 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
             set.removeAll(pendingRemove);
-            pendingRemove.clear();
             return;
         }
         Player player = e.getPlayer();
