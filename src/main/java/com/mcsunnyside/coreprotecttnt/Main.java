@@ -78,15 +78,12 @@ public class Main extends JavaPlugin implements Listener {
         if (tnt == null)
             return;
         if(tnt instanceof TNTPrimed){
-            ArrayList<ExplodeChain> pendingRemove = new ArrayList<>();
             for (ExplodeChain chain : set) {
                 if (chain.getTntEntity().getUniqueId() == tnt.getUniqueId()) {
                     set.add(new ExplodeChain(chain.getUser(), tnt));
-                    pendingRemove.add(chain);
                     return;
                 }
             }
-            set.removeAll(pendingRemove);
             return;
         }
         Player player = e.getPlayer();
