@@ -54,7 +54,7 @@ public class Main extends JavaPlugin implements Listener {
             TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
             Entity source = tntPrimed.getSource();
             if (source != null) {
-                //Bukkit given the args for tnt, direct track it.
+                //Bukkit has given the ignition source, track it directly.
                 if (source instanceof Player) {
                     set.add(new ExplodeChain(source.getName(), tntPrimed));
                 } else if (source instanceof TNTPrimed) {
