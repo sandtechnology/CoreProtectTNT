@@ -15,7 +15,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -54,10 +53,8 @@ public class Main extends JavaPlugin implements Listener {
         if (e.getEntity() instanceof TNTPrimed) {
             TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
             Entity source = tntPrimed.getSource();
-            if (source == null) {
-                return;
-            }else{
-                //Bukkti given the args for tnt, direct track it.
+            if (source != null) {
+                //Bukkit has given the ignition source, track it directly.
                 if (source instanceof Player) {
                     set.add(new ExplodeChain(source.getName(), tntPrimed));
                 } else if (source instanceof TNTPrimed) {
@@ -81,16 +78,12 @@ public class Main extends JavaPlugin implements Listener {
         if (tnt == null)
             return;
         if(tnt instanceof TNTPrimed){
-            ArrayList<ExplodeChain> pendingRemove = new ArrayList<>();
             for (ExplodeChain chain : set) {
                 if (chain.getTntEntity().getUniqueId() == tnt.getUniqueId()) {
                     set.add(new ExplodeChain(chain.getUser(), tnt));
-                    pendingRemove.add(chain);
                     return;
                 }
             }
-            set.removeAll(pendingRemove);
-            pendingRemove.clear();
             return;
         }
         Player player = e.getPlayer();
