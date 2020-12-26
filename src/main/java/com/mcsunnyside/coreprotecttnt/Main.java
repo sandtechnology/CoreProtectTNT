@@ -3,14 +3,16 @@ package com.mcsunnyside.coreprotecttnt;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
+import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
-import org.bukkit.event.entity.EntityExplodeEvent;
-import org.bukkit.event.entity.EntitySpawnEvent;
+import org.bukkit.event.entity.*;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
@@ -18,9 +20,9 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
 
-@SuppressWarnings("ConstantConditions")
 public class Main extends JavaPlugin implements Listener {
     private Set<ExplodeChain> set = new HashSet<>();
+    private Map<Location, String> ignitedBlocks = new HashMap<>();
     private CoreProtectAPI api;
 
     @Override
@@ -33,12 +35,17 @@ public class Main extends JavaPlugin implements Listener {
             return;
         }
         api = ((CoreProtect) depend).getAPI();
-        new BukkitRunnable(){
+        new BukkitRunnable() {
             @Override
             public void run() {
-                set.clear();
+                if (set.size() > 1000) {
+                    set.clear();
+                }
+                if (ignitedBlocks.size() > 1000) {
+                    ignitedBlocks.clear();
+                }
             }
-        }.runTaskTimerAsynchronously(this, 0, 20*60*60);
+        }.runTaskTimerAsynchronously(this, 0, 20 * 60 * 10);
     }
 
     @Override
@@ -46,6 +53,20 @@ public class Main extends JavaPlugin implements Listener {
         set.clear();
     }
 
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onFireballLaunch(ProjectileLaunchEvent e) {
+        if (e.getEntity().getShooter() != null) {
+            if (e.getEntityType() == EntityType.FIREBALL) {
+                String source = ((Entity) e.getEntity().getShooter()).getType().name();
+                if (e.getEntity().getShooter() instanceof Ghast && ((Ghast) e.getEntity().getShooter()).getTarget() != null) {
+                    Entity target = ((Ghast) e.getEntity().getShooter()).getTarget();
+                    String targetName = target.getType() == EntityType.PLAYER ? target.getName() : target.getType().name();
+                    source += "->" + targetName;
+                }
+                set.add(new ExplodeChain(source, e.getEntity()));
+            }
+        }
+    }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onIgnite(EntitySpawnEvent e) {
@@ -55,40 +76,97 @@ public class Main extends JavaPlugin implements Listener {
             Entity source = tntPrimed.getSource();
             if (source != null) {
                 //Bukkit has given the ignition source, track it directly.
-                if (source instanceof Player) {
-                    set.add(new ExplodeChain(source.getName(), tntPrimed));
-                } else if (source instanceof TNTPrimed) {
-                    for (ExplodeChain chain : set) {
-                        if (chain.getTntEntity().getUniqueId() == tnt.getUniqueId()) {
-                            set.add(new ExplodeChain(chain.getUser(), tnt));
-                            return;
-                        }
+                for (ExplodeChain chain : set) {
+                    if (chain.getTntEntity().getUniqueId().equals(tnt.getUniqueId()) || chain.getTntEntity().getUniqueId().equals(source.getUniqueId())) {
+                        set.add(new ExplodeChain(chain.getUser(), tnt));
+                        return;
                     }
-                } else {
+                }
+                if (source.getType() == EntityType.PLAYER) {
                     set.add(new ExplodeChain(source.getName(), tntPrimed));
+                    return;
                 }
             }
-
+            for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
+                if (entry.getKey().clone().add(0.5, 0, 0.5).distance(tnt.getLocation()) < 0.5) {
+                    set.add(new ExplodeChain(entry.getValue(), tnt));
+                    break;
+                }
+            }
         }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onIgnite(BlockIgniteEvent e) {
-        Entity tnt = e.getIgnitingEntity();
-        if (tnt == null)
-            return;
-        if(tnt instanceof TNTPrimed){
-            for (ExplodeChain chain : set) {
-                if (chain.getTntEntity().getUniqueId() == tnt.getUniqueId()) {
-                    set.add(new ExplodeChain(chain.getUser(), tnt));
-                    return;
+    public void onEndCrystalHit(EntityDamageByEntityEvent e) {
+        if (e.getEntityType() == EntityType.ENDER_CRYSTAL) {
+            if (e.getDamager().getType() == EntityType.PLAYER) {
+                set.add(new ExplodeChain(e.getDamager().getName(), e.getEntity()));
+            } else {
+                Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(e.getDamager().getUniqueId())).findAny();
+                if (chain.isPresent()) {
+                    set.add(new ExplodeChain(chain.get().getUser(), e.getEntity()));
+                } else if (e.getDamager() instanceof Projectile) {
+                    Projectile projectile = (Projectile) e.getDamager();
+                    if (projectile.getShooter() != null && projectile.getShooter() instanceof Player) {
+                        set.add(new ExplodeChain(((Player) projectile.getShooter()).getName(), e.getEntity()));
+                    }
                 }
             }
-            return;
         }
-        Player player = e.getPlayer();
-        if (player != null) {
-            set.add(new ExplodeChain(player.getName(), tnt));
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockIgnite(BlockIgniteEvent e) {
+        if (e.getIgnitingEntity() != null) {
+            if (e.getIgnitingEntity().getType() == EntityType.PLAYER) {
+                ignitedBlocks.put(e.getBlock().getLocation(), e.getPlayer().getName());
+                return;
+            }
+            Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(e.getIgnitingEntity().getUniqueId())).findAny();
+            if (chain.isPresent()) {
+                ignitedBlocks.put(e.getBlock().getLocation(), chain.get().getUser());
+                return;
+            } else if (e.getIgnitingEntity() instanceof Projectile) {
+                if (((Projectile) e.getIgnitingEntity()).getShooter() != null) {
+                    ProjectileSource shooter = ((Projectile) e.getIgnitingEntity()).getShooter();
+                    if (shooter instanceof Player) {
+                        ignitedBlocks.put(e.getBlock().getLocation(), ((Player) ((Projectile) e.getIgnitingEntity()).getShooter()).getName());
+                        return;
+                    }
+                }
+            }
+        }
+        if (e.getIgnitingBlock() != null) {
+            if (ignitedBlocks.containsKey(e.getIgnitingBlock().getLocation())) {
+                ignitedBlocks.put(e.getBlock().getLocation(), ignitedBlocks.get(e.getIgnitingBlock().getLocation()));
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockBurn(BlockBurnEvent e) {
+        if (e.getIgnitingBlock() != null) {
+            if (ignitedBlocks.containsKey(e.getIgnitingBlock().getLocation())) {
+                ignitedBlocks.put(e.getBlock().getLocation(), ignitedBlocks.get(e.getIgnitingBlock().getLocation()));
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onExplodableHit(ProjectileHitEvent e) {
+        if (e.getHitEntity() != null) {
+            if (e.getHitEntity() instanceof ExplosiveMinecart || e.getEntityType() == EntityType.ENDER_CRYSTAL) {
+                if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
+                    Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(e.getEntity().getUniqueId())).findAny();
+                    if (chain.isPresent()) {
+                        set.add(new ExplodeChain(chain.get().getUser(), e.getHitEntity()));
+                    } else {
+                        if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
+                            set.add(new ExplodeChain(((Player) e.getEntity().getShooter()).getName(), e.getHitEntity()));
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -99,34 +177,33 @@ public class Main extends JavaPlugin implements Listener {
         if (blockList.isEmpty())
             return;
         List<ExplodeChain> pendingRemoval = new ArrayList<>();
-        if(tnt instanceof TNTPrimed){
-            if(!getConfig().getBoolean("tnt.log"))
+        String configTntName = e.getEntityType() == EntityType.ENDER_CRYSTAL ? "endercrystal" : "tnt";
+        if (tnt instanceof TNTPrimed || tnt instanceof EnderCrystal) {
+            if (!getConfig().getBoolean(configTntName + ".log"))
                 return;
-            boolean isLogged = false;
-            for (ExplodeChain chain : set) {
-                if (chain.getTntEntity().getUniqueId() != tnt.getUniqueId())
-                    continue;
+            String tntName = tnt.getType() == EntityType.PRIMED_TNT ? "TNT" : "EndCrystal";
+
+            Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(tnt.getUniqueId())).findAny();
+            if (chain.isPresent()) {
                 for (Block block : blockList) {
-                    api.logRemoval("#[TNT]" + chain.getUser(), block.getLocation(), block.getType(), block.getBlockData());
+                    api.logRemoval("#[" + tntName + "]" + chain.get().getUser(), block.getLocation(), block.getType(), block.getBlockData());
+                    ignitedBlocks.put(block.getLocation(), chain.get().getUser());
                 }
-                pendingRemoval.add(chain);
-                isLogged = true;
-                break;
-            }
-            if(!isLogged){
-                //Notify players this tnt won't break any blocks
-                if(!getConfig().getBoolean("tnt.disable-when-target-not-found"))
+                pendingRemoval.add(chain.get());
+            } else {
+                //Notify players this tnt or end crystal won't break any blocks
+                if (!getConfig().getBoolean(configTntName + ".disable-when-target-not-found"))
                     return;
                 e.setCancelled(true);
-                Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(),15,15,15);
-                for (Entity entity : entityCollections){
-                    if(entity instanceof Player)
-                        entity.sendMessage(getConfig().getString("msgs.tnt-wont-break-blocks"));
+                Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
+                for (Entity entity : entityCollections) {
+                    if (entity instanceof Player)
+                        entity.sendMessage(getConfig().getString("msgs." + configTntName + "-wont-break-blocks"));
                 }
             }
         }
-        if(tnt instanceof Creeper){
-            if(!getConfig().getBoolean("creeper.log"))
+        if (tnt instanceof Creeper) {
+            if (!getConfig().getBoolean("creeper.log"))
                 return;
             Creeper creeper = (Creeper) tnt;
             LivingEntity creeperTarget = creeper.getTarget();
@@ -134,42 +211,73 @@ public class Main extends JavaPlugin implements Listener {
                 for (Block block : blockList) {
                     api.logRemoval("#[Creeper]" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
                 }
-            }else{
+            } else {
                 //Notify players this creeper won't break any blocks
-                if(!getConfig().getBoolean("creeper.disable-when-target-not-found"))
+                if (!getConfig().getBoolean("creeper.disable-when-target-not-found"))
                     return;
                 e.setCancelled(true);
-                Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(),15,15,15);
-                for (Entity entity : entityCollections){
-                    if(entity instanceof Player)
+                Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
+                for (Entity entity : entityCollections) {
+                    if (entity instanceof Player)
                         entity.sendMessage(getConfig().getString("msgs.creeper-wont-break-blocks"));
                 }
             }
         }
-        if(tnt instanceof Fireball){
-            if(!getConfig().getBoolean("fireball.log"))
+        if (tnt instanceof Fireball) {
+            if (!getConfig().getBoolean("fireball.log"))
                 return;
-            ProjectileSource source = ((Fireball) tnt).getShooter();
-            if(source == null){
-                if(!getConfig().getBoolean("fireball.disable-when-target-not-found"))
-                    return;
-                Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(),15,15,15);
-                for (Entity entity : entityCollections){
-                    if(entity instanceof Player)
-                        entity.sendMessage(getConfig().getString("msgs.fireball-wont-break-blocks"));
+            Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(tnt.getUniqueId())).findAny();
+            if (chain.isPresent()) {
+                for (Block block : blockList) {
+                    api.logRemoval("#[Fireball]" + chain.get().getUser(), block.getLocation(), block.getType(), block.getBlockData());
+                    ignitedBlocks.put(block.getLocation(), chain.get().getUser());
+                }
+                pendingRemoval.add(chain.get());
+            } else {
+                if (getConfig().getBoolean("fireball.disable-when-target-not-found")) {
+                    e.setCancelled(true);
+                    Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
+                    for (Entity entity : entityCollections) {
+                        if (entity instanceof Player)
+                            entity.sendMessage(getConfig().getString("msgs.fireball-wont-break-blocks"));
+                    }
+                } else {
+                    for (Block block : blockList) {
+                        api.logRemoval("#[Fireball]" + "MissingNo", block.getLocation(), block.getType(), block.getBlockData());
+                    }
                 }
             }
-            if(source instanceof Entity) {
-                for (Block block : blockList) {
-                    api.logRemoval("#[Fireball]" + source, block.getLocation(), block.getType(), block.getBlockData());
+        }
+        if(tnt instanceof ExplosiveMinecart) {
+            boolean isLogged = false;
+            for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
+                if (entry.getKey().clone().add(0.5, 0, 0.5).distance(tnt.getLocation()) < 1) {
+                    for (Block block : blockList) {
+                        api.logRemoval("#[MinecartTNT]" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
+                        ignitedBlocks.put(block.getLocation(), entry.getValue());
+                    }
+                    isLogged = true;
+                    break;
                 }
-            }else{
-                for (Block block : blockList) {
-                    api.logRemoval("#[Fireball]" + "MissingNo", block.getLocation(), block.getType(), block.getBlockData());
+            }
+            if(!isLogged) {
+                Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(tnt.getUniqueId())).findAny();
+                if (chain.isPresent()) {
+                    for (Block block : blockList) {
+                        api.logRemoval("#[MinecartTNT]" + chain.get().getUser(), block.getLocation(), block.getType(), block.getBlockData());
+                        ignitedBlocks.put(block.getLocation(), chain.get().getUser());
+                    }
+                    pendingRemoval.add(chain.get());
+                } else if (getConfig().getBoolean("tntminecart.disable-when-target-not-found")) {
+                    e.setCancelled(true);
+                    Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
+                    for (Entity entity : entityCollections) {
+                        if (entity instanceof Player)
+                            entity.sendMessage(getConfig().getString("msgs.tntminecart-wont-break-blocks"));
+                    }
                 }
             }
         }
         set.removeAll(pendingRemoval);
-        pendingRemoval.clear();
     }
 }
