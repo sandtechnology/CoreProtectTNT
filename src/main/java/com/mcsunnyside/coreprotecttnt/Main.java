@@ -87,8 +87,9 @@ public class Main extends JavaPlugin implements Listener {
                     return;
                 }
             }
+            Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
             for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
-                if (entry.getKey().clone().add(0.5, 0, 0.5).distance(tnt.getLocation()) < 0.5) {
+                if (entry.getKey().distance(blockCorner) < 0.5) {
                     set.add(new ExplodeChain(entry.getValue(), tnt));
                     break;
                 }
@@ -250,8 +251,9 @@ public class Main extends JavaPlugin implements Listener {
         }
         if(tnt instanceof ExplosiveMinecart) {
             boolean isLogged = false;
+            Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
             for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
-                if (entry.getKey().clone().add(0.5, 0, 0.5).distance(tnt.getLocation()) < 1) {
+                if (entry.getKey().distance(blockCorner) < 1) {
                     for (Block block : blockList) {
                         api.logRemoval("#[MinecartTNT]" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
                         ignitedBlocks.put(block.getLocation(), entry.getValue());
