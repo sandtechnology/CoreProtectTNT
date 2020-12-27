@@ -45,7 +45,7 @@ public class Main extends JavaPlugin implements Listener {
                     ignitedBlocks.clear();
                 }
             }
-        }.runTaskTimerAsynchronously(this, 0, 20 * 60 * 10);
+        }.runTaskTimerAsynchronously(this, 0, 20 * 60);
     }
 
     @Override
