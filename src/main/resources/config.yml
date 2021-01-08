@@ -10,7 +10,12 @@ endercrystal:
 fireball:
   log: true
   disable-when-target-not-found: true
+tntminecart:
+  log: true
+  disable-when-target-not-found: true
 msgs:
-  tnt-wont-break-blocks: "§cThis TNT explosion won't break any blocks because it was not triggered by a player."
-  creeper-wont-break-blocks: "§cThis Creeper explosion won't break any blocks because it was not triggered by a player."
-  fireball-wont-break-blocks: "§cThis Fireball explosion won't break any blocks because it was not triggered by a player."
+  tnt-wont-break-blocks: "§cThis TNT explode won't break any blocks cause it not trigged by player."
+  creeper-wont-break-blocks: "§cThis Creeper explode won't break any blocks cause it not trigged by player."
+  endercrystal-wont-break-blocks: "§cThis End Crystal explode won't break any blocks cause it not trigged by player."
+  fireball-wont-break-blocks: "§cThis Fireball explode won't break any blocks cause it not trigged by player."
+  tntminecart-wont-break-blocks: "§cThis TNT Minecart explode won't break any blocks cause it not trigged by player."
