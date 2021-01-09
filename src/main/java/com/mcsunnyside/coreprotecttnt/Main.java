@@ -48,10 +48,10 @@ public class Main extends JavaPlugin implements Listener {
                             toRemove.add(entity);
                         }
                     });
-                    // These entities may still trigger some events or act as a tnt source, so make a little delay
+                    // These entities may still trigger some events or act as a tnt source, so make a 30-second delay
                     getServer().getScheduler().scheduleSyncDelayedTask(Main.this, () -> {
                         toRemove.forEach(explosionSources::remove);
-                    }, 20 * 60);
+                    }, 20 * 30);
                 }
             }
         }.runTaskTimerAsynchronously(this, 0, 20 * 60);
