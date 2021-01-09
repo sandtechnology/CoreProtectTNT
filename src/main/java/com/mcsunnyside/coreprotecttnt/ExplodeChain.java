@@ -6,7 +6,7 @@ public class ExplodeChain {
     private String user;
     private Entity tntEntity;
 
-    ExplodeChain(String user, Entity tntEntity) {
+    public ExplodeChain(String user, Entity tntEntity) {
         this.user = user;
         this.tntEntity = tntEntity;
     }
