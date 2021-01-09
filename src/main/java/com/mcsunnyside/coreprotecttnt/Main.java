@@ -3,6 +3,7 @@ package com.mcsunnyside.coreprotecttnt;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
@@ -196,7 +197,11 @@ public class Main extends JavaPlugin implements Listener {
                 Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
                 for (Entity entity : entityCollections) {
                     if (entity instanceof Player)
-                        entity.sendMessage(getConfig().getString("msgs." + configTntName + "-wont-break-blocks"));
+                        entity.sendMessage(
+                                ChatColor.translateAlternateColorCodes('&',
+                                        getConfig().getString("msgs." + configTntName + "-wont-break-blocks")
+                                )
+                        );
                 }
             }
         }
@@ -217,7 +222,11 @@ public class Main extends JavaPlugin implements Listener {
                 Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
                 for (Entity entity : entityCollections) {
                     if (entity instanceof Player)
-                        entity.sendMessage(getConfig().getString("msgs.creeper-wont-break-blocks"));
+                        entity.sendMessage(
+                                ChatColor.translateAlternateColorCodes('&',
+                                        getConfig().getString("msgs.creeper-wont-break-blocks")
+                                )
+                        );
                 }
             }
         }
@@ -236,7 +245,11 @@ public class Main extends JavaPlugin implements Listener {
                     Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
                     for (Entity entity : entityCollections) {
                         if (entity instanceof Player)
-                            entity.sendMessage(getConfig().getString("msgs.fireball-wont-break-blocks"));
+                            entity.sendMessage(
+                                    ChatColor.translateAlternateColorCodes('&',
+                                            getConfig().getString("msgs.fireball-wont-break-blocks")
+                                    )
+                            );
                     }
                 } else {
                     for (Block block : blockList) {
@@ -270,7 +283,11 @@ public class Main extends JavaPlugin implements Listener {
                     Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
                     for (Entity entity : entityCollections) {
                         if (entity instanceof Player)
-                            entity.sendMessage(getConfig().getString("msgs.tntminecart-wont-break-blocks"));
+                            entity.sendMessage(
+                                    ChatColor.translateAlternateColorCodes('&',
+                                            getConfig().getString("msgs.tntminecart-wont-break-blocks")
+                                    )
+                            );
                     }
                 }
             }
