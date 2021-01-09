@@ -21,7 +21,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.*;
 
 public class Main extends JavaPlugin implements Listener {
-    private Set<ExplodeChain> set = new HashSet<>();
+    private HashMap<Entity, String> explosionSources = new HashMap<>();
     private Map<Location, String> ignitedBlocks = new HashMap<>();
     private CoreProtectAPI api;
 
@@ -38,19 +38,23 @@ public class Main extends JavaPlugin implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (set.size() > 1000) {
-                    set.clear();
-                }
                 if (ignitedBlocks.size() > 1000) {
                     ignitedBlocks.clear();
                 }
+                if (explosionSources.size() > 1000) {
+                    ArrayList<Entity> toRemove = new ArrayList<>();
+                    explosionSources.keySet().forEach(entity -> {
+                        if (!entity.isValid() || entity.isDead()) {
+                            toRemove.add(entity);
+                        }
+                    });
+                    // These entities may still trigger some events or act as a tnt source, so make a little delay
+                    getServer().getScheduler().scheduleSyncDelayedTask(Main.this, () -> {
+                        toRemove.forEach(explosionSources::remove);
+                    }, 20 * 60);
+                }
             }
         }.runTaskTimerAsynchronously(this, 0, 20 * 60);
-    }
-
-    @Override
-    public void onDisable() {
-        set.clear();
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -63,7 +67,7 @@ public class Main extends JavaPlugin implements Listener {
                     String targetName = target.getType() == EntityType.PLAYER ? target.getName() : target.getType().name();
                     source += "->" + targetName;
                 }
-                set.add(new ExplodeChain(source, e.getEntity()));
+                explosionSources.put(e.getEntity(), source);
             }
         }
     }
@@ -76,21 +80,19 @@ public class Main extends JavaPlugin implements Listener {
             Entity source = tntPrimed.getSource();
             if (source != null) {
                 //Bukkit has given the ignition source, track it directly.
-                for (ExplodeChain chain : set) {
-                    if (chain.getTntEntity().getUniqueId().equals(tnt.getUniqueId()) || chain.getTntEntity().getUniqueId().equals(source.getUniqueId())) {
-                        set.add(new ExplodeChain(chain.getUser(), tnt));
-                        return;
-                    }
+                if (explosionSources.containsKey(source)) {
+                    explosionSources.put(tnt, explosionSources.get(source));
+                    return;
                 }
                 if (source.getType() == EntityType.PLAYER) {
-                    set.add(new ExplodeChain(source.getName(), tntPrimed));
+                    explosionSources.put(tntPrimed, source.getName());
                     return;
                 }
             }
             Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
             for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
                 if (entry.getKey().distance(blockCorner) < 0.5) {
-                    set.add(new ExplodeChain(entry.getValue(), tnt));
+                    explosionSources.put(tnt, entry.getValue());
                     break;
                 }
             }
@@ -101,15 +103,14 @@ public class Main extends JavaPlugin implements Listener {
     public void onEndCrystalHit(EntityDamageByEntityEvent e) {
         if (e.getEntityType() == EntityType.ENDER_CRYSTAL) {
             if (e.getDamager().getType() == EntityType.PLAYER) {
-                set.add(new ExplodeChain(e.getDamager().getName(), e.getEntity()));
+                explosionSources.put(e.getEntity(), e.getDamager().getName());
             } else {
-                Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(e.getDamager().getUniqueId())).findAny();
-                if (chain.isPresent()) {
-                    set.add(new ExplodeChain(chain.get().getUser(), e.getEntity()));
+                if (explosionSources.containsKey(e.getDamager())) {
+                    explosionSources.put(e.getEntity(), explosionSources.get(e.getDamager()));
                 } else if (e.getDamager() instanceof Projectile) {
                     Projectile projectile = (Projectile) e.getDamager();
                     if (projectile.getShooter() != null && projectile.getShooter() instanceof Player) {
-                        set.add(new ExplodeChain(((Player) projectile.getShooter()).getName(), e.getEntity()));
+                        explosionSources.put(e.getEntity(), ((Player) projectile.getShooter()).getName());
                     }
                 }
             }
@@ -123,15 +124,13 @@ public class Main extends JavaPlugin implements Listener {
                 ignitedBlocks.put(e.getBlock().getLocation(), e.getPlayer().getName());
                 return;
             }
-            Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(e.getIgnitingEntity().getUniqueId())).findAny();
-            if (chain.isPresent()) {
-                ignitedBlocks.put(e.getBlock().getLocation(), chain.get().getUser());
-                return;
+            if (explosionSources.containsKey(e.getIgnitingEntity())) {
+                ignitedBlocks.put(e.getBlock().getLocation(), explosionSources.get(e.getIgnitingEntity()));
             } else if (e.getIgnitingEntity() instanceof Projectile) {
                 if (((Projectile) e.getIgnitingEntity()).getShooter() != null) {
                     ProjectileSource shooter = ((Projectile) e.getIgnitingEntity()).getShooter();
                     if (shooter instanceof Player) {
-                        ignitedBlocks.put(e.getBlock().getLocation(), ((Player) ((Projectile) e.getIgnitingEntity()).getShooter()).getName());
+                        ignitedBlocks.put(e.getBlock().getLocation(), ((Player) shooter).getName());
                         return;
                     }
                 }
@@ -158,12 +157,11 @@ public class Main extends JavaPlugin implements Listener {
         if (e.getHitEntity() != null) {
             if (e.getHitEntity() instanceof ExplosiveMinecart || e.getEntityType() == EntityType.ENDER_CRYSTAL) {
                 if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
-                    Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(e.getEntity().getUniqueId())).findAny();
-                    if (chain.isPresent()) {
-                        set.add(new ExplodeChain(chain.get().getUser(), e.getHitEntity()));
+                    if (explosionSources.containsKey(e.getEntity())) {
+                        explosionSources.put(e.getHitEntity(), explosionSources.get(e.getEntity()));
                     } else {
                         if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
-                            set.add(new ExplodeChain(((Player) e.getEntity().getShooter()).getName(), e.getHitEntity()));
+                            explosionSources.put(e.getHitEntity(), ((Player) e.getEntity().getShooter()).getName());
                         }
                     }
                 }
@@ -177,20 +175,19 @@ public class Main extends JavaPlugin implements Listener {
         List<Block> blockList = e.blockList();
         if (blockList.isEmpty())
             return;
-        List<ExplodeChain> pendingRemoval = new ArrayList<>();
+        List<Entity> pendingRemoval = new ArrayList<>();
         String configTntName = e.getEntityType() == EntityType.ENDER_CRYSTAL ? "endercrystal" : "tnt";
         if (tnt instanceof TNTPrimed || tnt instanceof EnderCrystal) {
             if (!getConfig().getBoolean(configTntName + ".log"))
                 return;
             String tntName = tnt.getType() == EntityType.PRIMED_TNT ? "TNT" : "EndCrystal";
 
-            Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(tnt.getUniqueId())).findAny();
-            if (chain.isPresent()) {
+            if (explosionSources.containsKey(tnt)) {
                 for (Block block : blockList) {
-                    api.logRemoval("#[" + tntName + "]" + chain.get().getUser(), block.getLocation(), block.getType(), block.getBlockData());
-                    ignitedBlocks.put(block.getLocation(), chain.get().getUser());
+                    api.logRemoval("#[" + tntName + "]" + explosionSources.get(tnt), block.getLocation(), block.getType(), block.getBlockData());
+                    ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
                 }
-                pendingRemoval.add(chain.get());
+                pendingRemoval.add(tnt);
             } else {
                 //Notify players this tnt or end crystal won't break any blocks
                 if (!getConfig().getBoolean(configTntName + ".disable-when-target-not-found"))
@@ -227,13 +224,12 @@ public class Main extends JavaPlugin implements Listener {
         if (tnt instanceof Fireball) {
             if (!getConfig().getBoolean("fireball.log"))
                 return;
-            Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(tnt.getUniqueId())).findAny();
-            if (chain.isPresent()) {
+            if (explosionSources.containsKey(tnt)) {
                 for (Block block : blockList) {
-                    api.logRemoval("#[Fireball]" + chain.get().getUser(), block.getLocation(), block.getType(), block.getBlockData());
-                    ignitedBlocks.put(block.getLocation(), chain.get().getUser());
+                    api.logRemoval("#[Fireball]" + explosionSources.get(tnt), block.getLocation(), block.getType(), block.getBlockData());
+                    ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
                 }
-                pendingRemoval.add(chain.get());
+                pendingRemoval.add(tnt);
             } else {
                 if (getConfig().getBoolean("fireball.disable-when-target-not-found")) {
                     e.setCancelled(true);
@@ -249,7 +245,7 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
         }
-        if(tnt instanceof ExplosiveMinecart) {
+        if (tnt instanceof ExplosiveMinecart) {
             boolean isLogged = false;
             Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
             for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
@@ -262,14 +258,13 @@ public class Main extends JavaPlugin implements Listener {
                     break;
                 }
             }
-            if(!isLogged) {
-                Optional<ExplodeChain> chain = set.stream().filter(c -> c.getTntEntity().getUniqueId().equals(tnt.getUniqueId())).findAny();
-                if (chain.isPresent()) {
+            if (!isLogged) {
+                if (explosionSources.containsKey(tnt)) {
                     for (Block block : blockList) {
-                        api.logRemoval("#[MinecartTNT]" + chain.get().getUser(), block.getLocation(), block.getType(), block.getBlockData());
-                        ignitedBlocks.put(block.getLocation(), chain.get().getUser());
+                        api.logRemoval("#[MinecartTNT]" + explosionSources.get(tnt), block.getLocation(), block.getType(), block.getBlockData());
+                        ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
                     }
-                    pendingRemoval.add(chain.get());
+                    pendingRemoval.add(tnt);
                 } else if (getConfig().getBoolean("tntminecart.disable-when-target-not-found")) {
                     e.setCancelled(true);
                     Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
@@ -280,6 +275,6 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
         }
-        set.removeAll(pendingRemoval);
+        pendingRemoval.forEach(explosionSources::remove);
     }
 }
