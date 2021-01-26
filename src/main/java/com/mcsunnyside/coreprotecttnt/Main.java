@@ -5,6 +5,7 @@ import net.coreprotect.CoreProtectAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
@@ -20,10 +21,12 @@ import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class Main extends JavaPlugin implements Listener {
-    private HashMap<Entity, String> explosionSources = new HashMap<>();
-    private Map<Location, String> ignitedBlocks = new HashMap<>();
+    private final HashMap<Entity, String> explosionSources = new HashMap<>();
+    private final Map<Location, String> ignitedBlocks = new ConcurrentHashMap<>();
     private CoreProtectAPI api;
 
     @Override
@@ -39,7 +42,22 @@ public class Main extends JavaPlugin implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (ignitedBlocks.size() > 1000) {
+                    List<Location> blocks = ignitedBlocks.keySet()
+                            .stream()
+                            .filter(block -> block.getBlock().getType() != Material.FIRE)
+                            .collect(Collectors.toList());
+                    if(!blocks.isEmpty()) {
+                        new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                blocks
+                                        .stream()
+                                        .filter(block -> block.getBlock().getType() != Material.FIRE)
+                                        .forEach(ignitedBlocks::remove);
+                            }
+                        }.runTaskLater(Main.this, 42);
+                    }
+                 if (ignitedBlocks.size() > 5000) {
                     ignitedBlocks.clear();
                 }
                 if (explosionSources.size() > 1000) {
@@ -50,9 +68,7 @@ public class Main extends JavaPlugin implements Listener {
                         }
                     });
                     // These entities may still trigger some events or act as a tnt source, so make a 30-second delay
-                    getServer().getScheduler().scheduleSyncDelayedTask(Main.this, () -> {
-                        toRemove.forEach(explosionSources::remove);
-                    }, 20 * 30);
+                    getServer().getScheduler().scheduleSyncDelayedTask(Main.this, () -> toRemove.forEach(explosionSources::remove), 20 * 30);
                 }
             }
         }.runTaskTimerAsynchronously(this, 0, 20 * 60);
