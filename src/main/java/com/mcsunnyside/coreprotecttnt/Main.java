@@ -2,19 +2,20 @@ package com.mcsunnyside.coreprotecttnt;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.type.Bed;
 import org.bukkit.entity.*;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.entity.*;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
@@ -72,6 +73,56 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
         }.runTaskTimerAsynchronously(this, 0, 20 * 60);
+    }
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent e) {
+        Block bed = e.getClickedBlock();
+
+        if (bed == null || !e.getAction().equals(Action.RIGHT_CLICK_BLOCK) ||
+                bed.getLocation().getWorld().getEnvironment().equals(World.Environment.NORMAL)) {
+            return;
+        }
+
+        if (!(bed.getType().equals(Material.BLACK_BED) ||
+                bed.getType().equals(Material.BLUE_BED) ||
+                bed.getType().equals(Material.BROWN_BED) ||
+                bed.getType().equals(Material.CYAN_BED) ||
+                bed.getType().equals(Material.GRAY_BED) ||
+                bed.getType().equals(Material.GREEN_BED) ||
+                bed.getType().equals(Material.LIGHT_BLUE_BED) ||
+                bed.getType().equals(Material.LIGHT_GRAY_BED) ||
+                bed.getType().equals(Material.LIME_BED) ||
+                bed.getType().equals(Material.MAGENTA_BED) ||
+                bed.getType().equals(Material.ORANGE_BED) ||
+                bed.getType().equals(Material.PINK_BED) ||
+                bed.getType().equals(Material.PURPLE_BED) ||
+                bed.getType().equals(Material.RED_BED) ||
+                bed.getType().equals(Material.WHITE_BED) ||
+                bed.getType().equals(Material.YELLOW_BED))) {
+            return;
+        }
+
+        Bed data = (Bed) bed.getBlockData();
+        Location location = bed.getLocation();
+        if(data.getPart().equals(Bed.Part.FOOT)) {
+            location = location.add(data.getFacing().getDirection());
+        }
+
+        ignitedBlocks.put(location, e.getPlayer().getName());
+        api.logRemoval("#[BedClick]" + e.getPlayer().getName(), location, bed.getType(), bed.getBlockData());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockExplode(BlockExplodeEvent e) {
+        String source = ignitedBlocks.get(e.getBlock().getLocation());
+        if(source != null) {
+            ignitedBlocks.remove(e.getBlock().getLocation());
+
+            for (Block block : e.blockList()) {
+                api.logRemoval("#[Bed]" + source, block.getLocation(), block.getType(), block.getBlockData());
+            }
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
