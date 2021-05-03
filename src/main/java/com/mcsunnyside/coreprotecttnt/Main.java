@@ -105,6 +105,10 @@ public class Main extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockExplode(BlockExplodeEvent e) {
+        if (!getConfig().getBoolean("bed.log")) {
+            return;
+        }
+
         String source = explosiveBlocks.get(e.getBlock().getLocation());
         if(source != null) {
             explosiveBlocks.remove(e.getBlock().getLocation());
