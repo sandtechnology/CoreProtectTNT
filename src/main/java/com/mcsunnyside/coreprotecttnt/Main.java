@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 public class Main extends JavaPlugin implements Listener {
     private final HashMap<Entity, String> explosionSources = new HashMap<>();
     private final Map<Location, String> ignitedBlocks = new ConcurrentHashMap<>();
-    private final Map<Location, String> explosiveBlocks = new ConcurrentHashMap<>();
+    private final HashMap<Location, String> explosiveBlocks = new HashMap<>();
     private CoreProtectAPI api;
 
     @Override
@@ -84,8 +84,8 @@ public class Main extends JavaPlugin implements Listener {
 
         Block bed = e.getClickedBlock();
 
-        if (!e.getAction().equals(Action.RIGHT_CLICK_BLOCK) ||
-                bed.getLocation().getWorld().getEnvironment().equals(World.Environment.NORMAL)) {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK ||
+                bed.getLocation().getWorld().getEnvironment() == World.Environment.NORMAL) {
             return;
         }
 
@@ -95,12 +95,14 @@ public class Main extends JavaPlugin implements Listener {
 
         Bed data = (Bed) bed.getBlockData();
         Location location = bed.getLocation();
-        if(data.getPart().equals(Bed.Part.FOOT)) {
+        if(data.getPart() == Bed.Part.FOOT) {
             location = location.add(data.getFacing().getDirection());
         }
 
         explosiveBlocks.put(location, e.getPlayer().getName());
-        api.logRemoval("#[Bed]" + e.getPlayer().getName(), location, bed.getType(), bed.getBlockData());
+        api.logRemoval("#[Bed]" + e.getPlayer().getName(), location, bed.getType(), bed.getBlockData()); // head
+        api.logRemoval("#[Bed]" + e.getPlayer().getName(), location.subtract(data.getFacing().getDirection()),
+                bed.getType(), bed.getBlockData()); // foot
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
