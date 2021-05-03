@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 public class Main extends JavaPlugin implements Listener {
     private final HashMap<Entity, String> explosionSources = new HashMap<>();
     private final Map<Location, String> ignitedBlocks = new ConcurrentHashMap<>();
+    private final Map<Location, String> explosiveBlocks = new ConcurrentHashMap<>();
     private CoreProtectAPI api;
 
     @Override
@@ -77,29 +78,18 @@ public class Main extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent e) {
+        if (!getConfig().getBoolean("bed.log")) {
+            return;
+        }
+
         Block bed = e.getClickedBlock();
 
-        if (bed == null || !e.getAction().equals(Action.RIGHT_CLICK_BLOCK) ||
+        if (!e.getAction().equals(Action.RIGHT_CLICK_BLOCK) ||
                 bed.getLocation().getWorld().getEnvironment().equals(World.Environment.NORMAL)) {
             return;
         }
 
-        if (!(bed.getType().equals(Material.BLACK_BED) ||
-                bed.getType().equals(Material.BLUE_BED) ||
-                bed.getType().equals(Material.BROWN_BED) ||
-                bed.getType().equals(Material.CYAN_BED) ||
-                bed.getType().equals(Material.GRAY_BED) ||
-                bed.getType().equals(Material.GREEN_BED) ||
-                bed.getType().equals(Material.LIGHT_BLUE_BED) ||
-                bed.getType().equals(Material.LIGHT_GRAY_BED) ||
-                bed.getType().equals(Material.LIME_BED) ||
-                bed.getType().equals(Material.MAGENTA_BED) ||
-                bed.getType().equals(Material.ORANGE_BED) ||
-                bed.getType().equals(Material.PINK_BED) ||
-                bed.getType().equals(Material.PURPLE_BED) ||
-                bed.getType().equals(Material.RED_BED) ||
-                bed.getType().equals(Material.WHITE_BED) ||
-                bed.getType().equals(Material.YELLOW_BED))) {
+        if (!(bed.getBlockData() instanceof Bed)) {
             return;
         }
 
@@ -109,18 +99,19 @@ public class Main extends JavaPlugin implements Listener {
             location = location.add(data.getFacing().getDirection());
         }
 
-        ignitedBlocks.put(location, e.getPlayer().getName());
-        api.logRemoval("#[BedClick]" + e.getPlayer().getName(), location, bed.getType(), bed.getBlockData());
+        explosiveBlocks.put(location, e.getPlayer().getName());
+        api.logRemoval("#[Bed]" + e.getPlayer().getName(), location, bed.getType(), bed.getBlockData());
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockExplode(BlockExplodeEvent e) {
-        String source = ignitedBlocks.get(e.getBlock().getLocation());
+        String source = explosiveBlocks.get(e.getBlock().getLocation());
         if(source != null) {
-            ignitedBlocks.remove(e.getBlock().getLocation());
+            explosiveBlocks.remove(e.getBlock().getLocation());
 
             for (Block block : e.blockList()) {
                 api.logRemoval("#[Bed]" + source, block.getLocation(), block.getType(), block.getBlockData());
+                ignitedBlocks.put(block.getLocation(), source);
             }
         }
     }
