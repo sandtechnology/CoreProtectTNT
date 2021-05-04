@@ -96,12 +96,12 @@ public class Main extends JavaPlugin implements Listener {
         Bed data = (Bed) bed.getBlockData();
         Location location = bed.getLocation();
         if(data.getPart() == Bed.Part.FOOT) {
-            location = location.add(data.getFacing().getDirection());
+            location.add(data.getFacing().getDirection());
         }
 
         explosiveBlocks.put(location, e.getPlayer().getName());
         api.logRemoval("#[Bed]" + e.getPlayer().getName(), location, bed.getType(), bed.getBlockData()); // head
-        api.logRemoval("#[Bed]" + e.getPlayer().getName(), location.subtract(data.getFacing().getDirection()),
+        api.logRemoval("#[Bed]" + e.getPlayer().getName(), location.clone().subtract(data.getFacing().getDirection()),
                 bed.getType(), bed.getBlockData()); // foot
     }
 
