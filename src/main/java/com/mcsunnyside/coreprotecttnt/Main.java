@@ -2,19 +2,20 @@ package com.mcsunnyside.coreprotecttnt;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.type.Bed;
 import org.bukkit.entity.*;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.entity.*;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class Main extends JavaPlugin implements Listener {
     private final HashMap<Entity, String> explosionSources = new HashMap<>();
     private final Map<Location, String> ignitedBlocks = new ConcurrentHashMap<>();
+    private final HashMap<Location, String> explosiveBlocks = new HashMap<>();
     private CoreProtectAPI api;
 
     @Override
@@ -72,6 +74,52 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
         }.runTaskTimerAsynchronously(this, 0, 20 * 60);
+    }
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent e) {
+        if (!getConfig().getBoolean("bed.log")) {
+            return;
+        }
+
+        Block bed = e.getClickedBlock();
+
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK ||
+                bed.getLocation().getWorld().getEnvironment() == World.Environment.NORMAL) {
+            return;
+        }
+
+        if (!(bed.getBlockData() instanceof Bed)) {
+            return;
+        }
+
+        Bed data = (Bed) bed.getBlockData();
+        Location location = bed.getLocation();
+        if(data.getPart() == Bed.Part.FOOT) {
+            location.add(data.getFacing().getDirection());
+        }
+
+        explosiveBlocks.put(location, e.getPlayer().getName());
+        api.logRemoval("#[Bed]" + e.getPlayer().getName(), location, bed.getType(), bed.getBlockData()); // head
+        api.logRemoval("#[Bed]" + e.getPlayer().getName(), location.clone().subtract(data.getFacing().getDirection()),
+                bed.getType(), bed.getBlockData()); // foot
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockExplode(BlockExplodeEvent e) {
+        if (!getConfig().getBoolean("bed.log")) {
+            return;
+        }
+
+        String source = explosiveBlocks.get(e.getBlock().getLocation());
+        if(source != null) {
+            explosiveBlocks.remove(e.getBlock().getLocation());
+
+            for (Block block : e.blockList()) {
+                api.logRemoval("#[Bed]" + source, block.getLocation(), block.getType(), block.getBlockData());
+                ignitedBlocks.put(block.getLocation(), source);
+            }
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
