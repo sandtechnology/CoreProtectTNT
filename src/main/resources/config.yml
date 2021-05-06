@@ -15,9 +15,18 @@ tntminecart:
   disable-when-target-not-found: true
 bed:
   log: true
+  disable-when-target-not-found: true
+respawn-anchor:
+  log: true
+  disable-when-target-not-found: true
+other-explosive-blocks:
+  disable-when-target-not-found: true
 msgs:
   tnt-wont-break-blocks: "&cThis TNT explosion won't break any blocks because it was not triggered by a player."
   creeper-wont-break-blocks: "&cThis Creeper explosion won't break any blocks because it was not triggered by a player."
   endercrystal-wont-break-blocks: "&cThis End Crystal explosion won't break any blocks because it was not triggered by a player."
   fireball-wont-break-blocks: "&cThis Fireball explosion won't break any blocks because it was not triggered by a player."
   tntminecart-wont-break-blocks: "&cThis TNT Minecart explosion won't break any blocks because it was not triggered by a player."
+  bed-wont-break-blocks: "&cThis Bed explosion won't break any blocks because it was not triggered by a player."
+  respawn-anchor-wont-break-blocks: "&cThis Respawn Anchor explosion won't break any blocks because it was not triggered by a player."
+  other-explosive-block-wont-break-blocks: "&cThis explosive block explosion won't break any blocks because it was not triggered by a player."
