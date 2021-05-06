@@ -23,12 +23,11 @@ import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class Main extends JavaPlugin implements Listener {
     private final HashMap<Entity, String> explosionSources = new HashMap<>();
-    private final Map<Location, String> ignitedBlocks = new ConcurrentHashMap<>();
+    private final HashMap<Location, String> ignitedBlocks = new HashMap<>();
     private final HashMap<Location, String> beds = new HashMap<>();
     private final HashMap<Location, String> respawnAnchors = new HashMap<>();
     private CoreProtectAPI api;
@@ -61,8 +60,14 @@ public class Main extends JavaPlugin implements Listener {
                         }
                     }.runTaskLater(Main.this, 42);
                 }
-                if (ignitedBlocks.size() > 5000) {
-                    ignitedBlocks.clear();
+                if (ignitedBlocks.size() > 10000) {
+                    List<Location> toRemove = new ArrayList<>();
+                    ignitedBlocks.keySet().stream().filter(block -> block.getBlock().getType() != Material.FIRE).forEach(toRemove::add);
+                    toRemove.forEach(ignitedBlocks::remove);
+                    
+                    if (ignitedBlocks.size() > 9000) {
+                        ignitedBlocks.clear();
+                    }
                 }
                 if (explosionSources.size() > 1000) {
                     ArrayList<Entity> toRemove = new ArrayList<>();
@@ -75,7 +80,7 @@ public class Main extends JavaPlugin implements Listener {
                     getServer().getScheduler().scheduleSyncDelayedTask(Main.this, () -> toRemove.forEach(explosionSources::remove), 20 * 30);
                 }
             }
-        }.runTaskTimerAsynchronously(this, 0, 20 * 60);
+        }.runTaskTimer(this, 0, 20 * 60);
     }
 
     @EventHandler
