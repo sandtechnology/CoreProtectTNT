@@ -64,7 +64,7 @@ public class Main extends JavaPlugin implements Listener {
                     List<Location> toRemove = new ArrayList<>();
                     ignitedBlocks.keySet().stream().filter(block -> block.getBlock().getType() != Material.FIRE).forEach(toRemove::add);
                     toRemove.forEach(ignitedBlocks::remove);
-                    
+
                     if (ignitedBlocks.size() > 9000) {
                         ignitedBlocks.clear();
                     }
@@ -118,25 +118,25 @@ public class Main extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockExplode(BlockExplodeEvent e) {
-        if (!getConfig().getBoolean("bed.log")) {
-            return;
-        }
-
         if (beds.containsKey(e.getBlock().getLocation())) {
-            String source = beds.get(e.getBlock().getLocation());
-            beds.remove(e.getBlock().getLocation());
+            if (getConfig().getBoolean("bed.log")) {
+                String source = beds.get(e.getBlock().getLocation());
+                beds.remove(e.getBlock().getLocation());
 
-            for (Block block : e.blockList()) {
-                api.logRemoval("#[Bed]" + source, block.getLocation(), block.getType(), block.getBlockData());
-                ignitedBlocks.put(block.getLocation(), source);
+                for (Block block : e.blockList()) {
+                    api.logRemoval("#[Bed]" + source, block.getLocation(), block.getType(), block.getBlockData());
+                    ignitedBlocks.put(block.getLocation(), source);
+                }
             }
         } else if (respawnAnchors.containsKey(e.getBlock().getLocation())) {
-            String source = respawnAnchors.get(e.getBlock().getLocation());
-            respawnAnchors.remove(e.getBlock().getLocation());
+            if (getConfig().getBoolean("respawn-anchor.log")) {
+                String source = respawnAnchors.get(e.getBlock().getLocation());
+                respawnAnchors.remove(e.getBlock().getLocation());
 
-            for (Block block : e.blockList()) {
-                api.logRemoval("#[RespawnAnchor]" + source, block.getLocation(), block.getType(), block.getBlockData());
-                ignitedBlocks.put(block.getLocation(), source);
+                for (Block block : e.blockList()) {
+                    api.logRemoval("#[RespawnAnchor]" + source, block.getLocation(), block.getType(), block.getBlockData());
+                    ignitedBlocks.put(block.getLocation(), source);
+                }
             }
         } else {
             // No idea why this could happen, but why not to handle this 0.01%
