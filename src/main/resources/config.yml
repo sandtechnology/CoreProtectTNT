@@ -21,6 +21,10 @@ respawn-anchor:
   disable-when-target-not-found: true
 other-explosive-blocks:
   disable-when-target-not-found: true
+fire:
+  log: true
+  disable-burn-when-target-not-found: false
+  disable-spread-when-target-not-found: false
 msgs:
   tnt-wont-break-blocks: "&cThis TNT explosion won't break any blocks because it was not triggered by a player."
   creeper-wont-break-blocks: "&cThis Creeper explosion won't break any blocks because it was not triggered by a player."
@@ -30,3 +34,5 @@ msgs:
   bed-wont-break-blocks: "&cThis Bed explosion won't break any blocks because it was not triggered by a player."
   respawn-anchor-wont-break-blocks: "&cThis Respawn Anchor explosion won't break any blocks because it was not triggered by a player."
   other-explosive-block-wont-break-blocks: "&cThis explosive block explosion won't break any blocks because it was not triggered by a player."
+  fire-wont-burn-blocks: "&cFire won't burn any blocks because it was not ignited by a player."
+  fire-wont-spread: "&cFire won't spread because it was not ignited by a player."

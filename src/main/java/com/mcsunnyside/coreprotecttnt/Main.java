@@ -30,6 +30,7 @@ public class Main extends JavaPlugin implements Listener {
     private final HashMap<Location, String> ignitedBlocks = new HashMap<>();
     private final HashMap<Location, String> beds = new HashMap<>();
     private final HashMap<Location, String> respawnAnchors = new HashMap<>();
+    private final ArrayList<Block> probablyIgnitedThisTick = new ArrayList<>();
     private CoreProtectAPI api;
 
     @Override
@@ -81,6 +82,19 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
         }.runTaskTimer(this, 0, 20 * 60);
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (getConfig().getBoolean("fire.log")) {
+                        for (Block block : probablyIgnitedThisTick) {
+                            if (block.getType() == Material.FIRE) {
+                                api.logPlacement("[Fire]" + ignitedBlocks.get(block.getLocation()), block.getLocation(), Material.FIRE, block.getBlockData());
+                            }
+                        }
+                    }
+                    probablyIgnitedThisTick.clear();
+                }
+            }.runTaskTimer(this, 1, 1);
     }
 
     @EventHandler
@@ -90,27 +104,30 @@ public class Main extends JavaPlugin implements Listener {
         }
 
         Block clickedBlock = e.getClickedBlock();
-        Location location = clickedBlock.getLocation();
+        Location locationHead = clickedBlock.getLocation();
 
         if (clickedBlock.getLocation().getWorld().getEnvironment() != World.Environment.NORMAL
                 && clickedBlock.getBlockData() instanceof Bed
                 && getConfig().getBoolean("bed.log")) {
             Bed data = (Bed) clickedBlock.getBlockData();
+            Location locationFoot = locationHead.clone().subtract(data.getFacing().getDirection());
             if (data.getPart() == Bed.Part.FOOT) {
-                location.add(data.getFacing().getDirection());
+                locationHead.add(data.getFacing().getDirection());
             }
 
-            beds.put(location, e.getPlayer().getName());
-            api.logRemoval("#[Bed]" + e.getPlayer().getName(), location, clickedBlock.getType(), data); // head
-            api.logRemoval("#[Bed]" + e.getPlayer().getName(), location.clone().subtract(data.getFacing().getDirection()),
-                    clickedBlock.getType(), clickedBlock.getBlockData()); // foot
+            beds.put(locationHead, e.getPlayer().getName());
+            probablyIgnitedThisTick.add(locationHead.getBlock());
+            probablyIgnitedThisTick.add(locationFoot.getBlock());
+            api.logRemoval("#[Bed]" + e.getPlayer().getName(), locationHead, clickedBlock.getType(), data); // head
+            api.logRemoval("#[Bed]" + e.getPlayer().getName(), locationFoot, clickedBlock.getType(), clickedBlock.getBlockData()); // foot
         } else if (clickedBlock.getType().name().equals("RESPAWN_ANCHOR") // support old versions
                 && clickedBlock.getLocation().getWorld().getEnvironment() != World.Environment.NETHER
                 && getConfig().getBoolean("respawn-anchor.log")) {
             RespawnAnchor data = (RespawnAnchor) clickedBlock.getBlockData();
             if (data.getCharges() == data.getMaximumCharges()) {
                 respawnAnchors.put(clickedBlock.getLocation(), e.getPlayer().getName());
-                api.logRemoval("#[RespawnAnchor]" + e.getPlayer().getName(), location, clickedBlock.getType(), data);
+                probablyIgnitedThisTick.add(clickedBlock);
+                api.logRemoval("#[RespawnAnchor]" + e.getPlayer().getName(), locationHead, clickedBlock.getType(), data);
             }
         }
 
@@ -127,6 +144,7 @@ public class Main extends JavaPlugin implements Listener {
                     api.logRemoval("#[Bed]" + source, block.getLocation(), block.getType(), block.getBlockData());
                     ignitedBlocks.put(block.getLocation(), source);
                 }
+                probablyIgnitedThisTick.addAll(e.blockList());
             }
         } else if (respawnAnchors.containsKey(e.getBlock().getLocation())) {
             if (getConfig().getBoolean("respawn-anchor.log")) {
@@ -137,6 +155,7 @@ public class Main extends JavaPlugin implements Listener {
                     api.logRemoval("#[RespawnAnchor]" + source, block.getLocation(), block.getType(), block.getBlockData());
                     ignitedBlocks.put(block.getLocation(), source);
                 }
+                probablyIgnitedThisTick.addAll(e.blockList());
             }
         } else {
             // No idea why this could happen, but why not to handle this 0.01%
@@ -248,15 +267,19 @@ public class Main extends JavaPlugin implements Listener {
         if (e.getIgnitingEntity() != null) {
             if (e.getIgnitingEntity().getType() == EntityType.PLAYER) {
                 ignitedBlocks.put(e.getBlock().getLocation(), e.getPlayer().getName());
+                // Don't add it to probablyIgnitedThisTick because it's the simplest case and is logged by Core Protect
                 return;
             }
             if (explosionSources.containsKey(e.getIgnitingEntity())) {
                 ignitedBlocks.put(e.getBlock().getLocation(), explosionSources.get(e.getIgnitingEntity()));
+                probablyIgnitedThisTick.add(e.getBlock());
+                return;
             } else if (e.getIgnitingEntity() instanceof Projectile) {
                 if (((Projectile) e.getIgnitingEntity()).getShooter() != null) {
                     ProjectileSource shooter = ((Projectile) e.getIgnitingEntity()).getShooter();
                     if (shooter instanceof Player) {
                         ignitedBlocks.put(e.getBlock().getLocation(), ((Player) shooter).getName());
+                        probablyIgnitedThisTick.add(e.getBlock());
                         return;
                     }
                 }
@@ -265,6 +288,21 @@ public class Main extends JavaPlugin implements Listener {
         if (e.getIgnitingBlock() != null) {
             if (ignitedBlocks.containsKey(e.getIgnitingBlock().getLocation())) {
                 ignitedBlocks.put(e.getBlock().getLocation(), ignitedBlocks.get(e.getIgnitingBlock().getLocation()));
+                probablyIgnitedThisTick.add(e.getBlock());
+                return;
+            }
+        }
+        
+        if(getConfig().getBoolean("fire.disable-spread-when-target-not-found")) {
+            e.setCancelled(true);
+            Collection<Entity> entityCollections = e.getBlock().getLocation().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
+            for (Entity entity : entityCollections) {
+                if (entity instanceof Player)
+                    entity.sendMessage(
+                            ChatColor.translateAlternateColorCodes('&',
+                                    getConfig().getString("msgs.fire-wont-spread")
+                            )
+                    );
             }
         }
     }
@@ -274,6 +312,18 @@ public class Main extends JavaPlugin implements Listener {
         if (e.getIgnitingBlock() != null) {
             if (ignitedBlocks.containsKey(e.getIgnitingBlock().getLocation())) {
                 ignitedBlocks.put(e.getBlock().getLocation(), ignitedBlocks.get(e.getIgnitingBlock().getLocation()));
+                api.logRemoval("[Fire]" + ignitedBlocks.get(e.getIgnitingBlock().getLocation()), e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
+            } else if(getConfig().getBoolean("fire.disable-burn-when-target-not-found")) {
+                e.setCancelled(true);
+                Collection<Entity> entityCollections = e.getBlock().getLocation().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
+                for (Entity entity : entityCollections) {
+                    if (entity instanceof Player)
+                        entity.sendMessage(
+                                ChatColor.translateAlternateColorCodes('&',
+                                        getConfig().getString("msgs.fire-wont-burn-blocks")
+                                )
+                        );
+                }
             }
         }
     }
@@ -313,6 +363,7 @@ public class Main extends JavaPlugin implements Listener {
                     api.logRemoval("#[" + tntName + "]" + explosionSources.get(tnt), block.getLocation(), block.getType(), block.getBlockData());
                     ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
                 }
+                probablyIgnitedThisTick.addAll(blockList);
                 pendingRemoval.add(tnt);
             } else {
                 //Notify players this tnt or end crystal won't break any blocks
@@ -339,6 +390,7 @@ public class Main extends JavaPlugin implements Listener {
                 for (Block block : blockList) {
                     api.logRemoval("#[Creeper]" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
                 }
+                probablyIgnitedThisTick.addAll(blockList);
             } else {
                 //Notify players this creeper won't break any blocks
                 if (!getConfig().getBoolean("creeper.disable-when-target-not-found"))
@@ -364,6 +416,7 @@ public class Main extends JavaPlugin implements Listener {
                     ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
                 }
                 pendingRemoval.add(tnt);
+                probablyIgnitedThisTick.addAll(blockList);
             } else {
                 if (getConfig().getBoolean("fireball.disable-when-target-not-found")) {
                     e.setCancelled(true);
@@ -380,6 +433,7 @@ public class Main extends JavaPlugin implements Listener {
                     for (Block block : blockList) {
                         api.logRemoval("#[Fireball]" + "MissingNo", block.getLocation(), block.getType(), block.getBlockData());
                     }
+                    probablyIgnitedThisTick.addAll(blockList);
                 }
             }
         }
@@ -392,6 +446,7 @@ public class Main extends JavaPlugin implements Listener {
                         api.logRemoval("#[MinecartTNT]" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
                         ignitedBlocks.put(block.getLocation(), entry.getValue());
                     }
+                    probablyIgnitedThisTick.addAll(blockList);
                     isLogged = true;
                     break;
                 }
@@ -402,6 +457,7 @@ public class Main extends JavaPlugin implements Listener {
                         api.logRemoval("#[MinecartTNT]" + explosionSources.get(tnt), block.getLocation(), block.getType(), block.getBlockData());
                         ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
                     }
+                    probablyIgnitedThisTick.addAll(blockList);
                     pendingRemoval.add(tnt);
                 } else if (getConfig().getBoolean("tntminecart.disable-when-target-not-found")) {
                     e.setCancelled(true);
