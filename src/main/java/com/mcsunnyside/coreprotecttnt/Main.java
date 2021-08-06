@@ -236,7 +236,7 @@ public class Main extends JavaPlugin implements Listener {
             }
             Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
             for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
-                if (entry.getKey().distance(blockCorner) < 0.5) {
+                if (entry.getKey().getWorld().equals(blockCorner.getWorld()) && entry.getKey().distance(blockCorner) < 0.5) {
                     explosionSources.put(tnt, entry.getValue());
                     break;
                 }
@@ -441,7 +441,7 @@ public class Main extends JavaPlugin implements Listener {
             boolean isLogged = false;
             Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
             for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
-                if (entry.getKey().distance(blockCorner) < 1) {
+                if (entry.getKey().getWorld().equals(blockCorner.getWorld()) && entry.getKey().distance(blockCorner) < 1) {
                     for (Block block : blockList) {
                         api.logRemoval("#[MinecartTNT]" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
                         ignitedBlocks.put(block.getLocation(), entry.getValue());
