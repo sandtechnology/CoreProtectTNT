@@ -6,7 +6,6 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
@@ -85,9 +84,7 @@ public class Main extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
         if (e.getRightClicked() instanceof Creeper) {
-            if (e.getPlayer().getInventory().getItemInMainHand().getType() == Material.FLINT_AND_STEEL || e.getPlayer().getInventory().getItemInOffHand().getType() == Material.FLINT_AND_STEEL) {
-                probablyCache.put(e.getRightClicked(), "#ignite-creeper-" + e.getPlayer().getName());
-            }
+            probablyCache.put(e.getRightClicked(), "#ignite-creeper-" + e.getPlayer().getName());
         }
     }
 
@@ -148,7 +145,7 @@ public class Main extends JavaPlugin implements Listener {
             }
             Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
             for (Map.Entry<Object, String> entry : probablyCache.asMap().entrySet()) {
-                if(entry.getKey() instanceof Location) {
+                if (entry.getKey() instanceof Location) {
                     Location loc = (Location) entry.getKey();
                     if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 0.5) {
                         probablyCache.put(tnt, entry.getValue());
@@ -263,7 +260,7 @@ public class Main extends JavaPlugin implements Listener {
                 String reason = "#" + entityName + "-" + probablyCache.getIfPresent(entity);
                 for (Block block : blockList) {
                     api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
-                    probablyCache.put(block.getLocation(),reason);
+                    probablyCache.put(block.getLocation(), reason);
                 }
                 pendingRemoval.add(entity);
             } else {
@@ -288,7 +285,7 @@ public class Main extends JavaPlugin implements Listener {
                 if (creeperTarget != null) {
                     for (Block block : blockList) {
                         api.logRemoval("#creeper-" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
-                        probablyCache.put(block.getLocation(),"#creeper-" + creeperTarget.getName());
+                        probablyCache.put(block.getLocation(), "#creeper-" + creeperTarget.getName());
                     }
                 } else {
                     //Notify players this creeper won't break any blocks
@@ -302,22 +299,22 @@ public class Main extends JavaPlugin implements Listener {
         }
         if (entity instanceof Fireball) {
             if (probablyCache.getIfPresent(entity) != null) {
-                String reason = "#fireball-" +probablyCache.getIfPresent(entity);
+                String reason = "#fireball-" + probablyCache.getIfPresent(entity);
                 for (Block block : blockList) {
                     api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
-                    probablyCache.put(block.getLocation(),reason);
+                    probablyCache.put(block.getLocation(), reason);
                 }
                 pendingRemoval.add(entity);
             } else {
                 if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
                     e.setYield(0.0f);
-                    Util.broadcastNearPlayers(entity.getLocation(),section.getString("alert"));
+                    Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                 } else {
                     for (Block block : blockList) {
                         api.logRemoval("#fireball-" + "MissingNo", block.getLocation(), block.getType(), block.getBlockData());
                     }
-                    blockList.forEach(b -> probablyCache.put(b.getLocation(),"#fireball-" + "MissingNo"));
+                    blockList.forEach(b -> probablyCache.put(b.getLocation(), "#fireball-" + "MissingNo"));
                 }
             }
         }
@@ -325,17 +322,17 @@ public class Main extends JavaPlugin implements Listener {
             boolean isLogged = false;
             Location blockCorner = entity.getLocation().clone().subtract(0.5, 0, 0.5);
             for (Map.Entry<Object, String> entry : probablyCache.asMap().entrySet()) {
-               if(entry.getKey() instanceof Location) {
-                   Location loc = (Location) entry.getKey();
-                   if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 1) {
-                       for (Block block : blockList) {
-                           api.logRemoval("#tntminecart-" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
-                           probablyCache.put(block.getLocation(), "#tntminecart-" + entry.getValue());
-                       }
-                       isLogged = true;
-                       break;
-                   }
-               }
+                if (entry.getKey() instanceof Location) {
+                    Location loc = (Location) entry.getKey();
+                    if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 1) {
+                        for (Block block : blockList) {
+                            api.logRemoval("#tntminecart-" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
+                            probablyCache.put(block.getLocation(), "#tntminecart-" + entry.getValue());
+                        }
+                        isLogged = true;
+                        break;
+                    }
+                }
             }
             if (!isLogged) {
                 if (probablyCache.getIfPresent(entity) != null) {
@@ -348,7 +345,7 @@ public class Main extends JavaPlugin implements Listener {
                 } else if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
                     e.setYield(0.0f);
-                    Util.broadcastNearPlayers(entity.getLocation(),section.getString("alert"));
+                    Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                 }
             }
         }
