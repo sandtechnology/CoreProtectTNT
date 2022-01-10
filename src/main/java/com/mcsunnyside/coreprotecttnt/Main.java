@@ -26,18 +26,14 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
-import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class Main extends JavaPlugin implements Listener {
-    private final Map<Entity, String> explosionSources = new HashMap<>();
-    private final Map<Location, String> ignitedBlocks = new HashMap<>();
-    private final Map<Location, String> beds = new HashMap<>();
-    private final Map<Location, String> respawnAnchors = new HashMap<>();
-    private final List<Block> probablyIgnitedThisTick = new ArrayList<>();
     private CoreProtectAPI api;
     private final Cache<Object, String> probablyCache = CacheBuilder
             .newBuilder()
@@ -56,59 +52,6 @@ public class Main extends JavaPlugin implements Listener {
             return;
         }
         api = ((CoreProtect) depend).getAPI();
-        Block block;
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                List<Location> blocks = ignitedBlocks.keySet()
-                        .stream()
-                        .filter(block -> block.getBlock().getType() != Material.FIRE)
-                        .collect(Collectors.toList());
-                if (!blocks.isEmpty()) {
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            blocks
-                                    .stream()
-                                    .filter(block -> block.getBlock().getType() != Material.FIRE)
-                                    .forEach(ignitedBlocks::remove);
-                        }
-                    }.runTaskLater(Main.this, 42);
-                }
-                if (ignitedBlocks.size() > 10000) {
-                    List<Location> toRemove = new ArrayList<>();
-                    ignitedBlocks.keySet().stream().filter(block -> block.getBlock().getType() != Material.FIRE).forEach(toRemove::add);
-                    toRemove.forEach(ignitedBlocks::remove);
-
-                    if (ignitedBlocks.size() > 9000) {
-                        ignitedBlocks.clear();
-                    }
-                }
-                if (explosionSources.size() > 1000) {
-                    ArrayList<Entity> toRemove = new ArrayList<>();
-                    explosionSources.keySet().forEach(entity -> {
-                        if (!entity.isValid() || entity.isDead()) {
-                            toRemove.add(entity);
-                        }
-                    });
-                    // These entities may still trigger some events or act as a tnt source, so make a 30-second delay
-                    getServer().getScheduler().scheduleSyncDelayedTask(Main.this, () -> toRemove.forEach(explosionSources::remove), 20 * 30);
-                }
-            }
-        }.runTaskTimer(this, 0, 20 * 60);
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (getConfig().getBoolean("fire.log")) {
-                    for (Block block : probablyIgnitedThisTick) {
-                        if (block.getType() == Material.FIRE) {
-                            api.logPlacement("[Fire]" + ignitedBlocks.get(block.getLocation()), block.getLocation(), Material.FIRE, block.getBlockData());
-                        }
-                    }
-                }
-                probablyIgnitedThisTick.clear();
-            }
-        }.runTaskTimer(this, 1, 1);
     }
 
     @EventHandler
@@ -137,34 +80,6 @@ public class Main extends JavaPlugin implements Listener {
         if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
             probablyCache.put(clickedBlock.getLocation(), "#respawn-anchor-" + e.getPlayer().getName());
         }
-
-
-//
-//        if (clickedBlock.getLocation().getWorld().getEnvironment() != World.Environment.NORMAL
-//                && clickedBlock.getBlockData() instanceof Bed
-//                && getConfig().getBoolean("bed.log")) {
-//            Bed data = (Bed) clickedBlock.getBlockData();
-//            Location locationFoot = locationHead.clone().subtract(data.getFacing().getDirection());
-//            if (data.getPart() == Bed.Part.FOOT) {
-//                locationHead.add(data.getFacing().getDirection());
-//            }
-//
-//            beds.put(locationHead, e.getPlayer().getName());
-//            probablyIgnitedThisTick.add(locationHead.getBlock());
-//            probablyIgnitedThisTick.add(locationFoot.getBlock());
-//            api.logRemoval("#[Bed]" + e.getPlayer().getName(), locationHead, clickedBlock.getType(), data); // head
-//            api.logRemoval("#[Bed]" + e.getPlayer().getName(), locationFoot, clickedBlock.getType(), clickedBlock.getBlockData()); // foot
-//        } else if (clickedBlock.getType().name().equals("RESPAWN_ANCHOR") // support old versions
-//                && clickedBlock.getLocation().getWorld().getEnvironment() != World.Environment.NETHER
-//                && getConfig().getBoolean("respawn-anchor.log")) {
-//            RespawnAnchor data = (RespawnAnchor) clickedBlock.getBlockData();
-//            if (data.getCharges() == data.getMaximumCharges()) {
-//                respawnAnchors.put(clickedBlock.getLocation(), e.getPlayer().getName());
-//                probablyIgnitedThisTick.add(clickedBlock);
-//                api.logRemoval("#[RespawnAnchor]" + e.getPlayer().getName(), locationHead, clickedBlock.getType(), data);
-//            }
-//        }
-
     }
 
     @EventHandler
@@ -198,73 +113,6 @@ public class Main extends JavaPlugin implements Listener {
         for (Block block : e.blockList()) {
             api.logRemoval(probablyCauses, block.getLocation(), block.getType(), block.getBlockData());
         }
-
-
-//        if (beds.containsKey(e.getBlock().getLocation())) {
-//            if (getConfig().getBoolean("bed.log")) {
-//                String source = beds.get(e.getBlock().getLocation());
-//                beds.remove(e.getBlock().getLocation());
-//
-//                for (Block block : e.blockList()) {
-//                    api.logRemoval("#[Bed]" + source, block.getLocation(), block.getType(), block.getBlockData());
-//                    ignitedBlocks.put(block.getLocation(), source);
-//                }
-//                probablyIgnitedThisTick.addAll(e.blockList());
-//            }
-//        } else if (respawnAnchors.containsKey(e.getBlock().getLocation())) {
-//            if (getConfig().getBoolean("respawn-anchor.log")) {
-//                String source = respawnAnchors.get(e.getBlock().getLocation());
-//                respawnAnchors.remove(e.getBlock().getLocation());
-//
-//                for (Block block : e.blockList()) {
-//                    api.logRemoval("#[RespawnAnchor]" + source, block.getLocation(), block.getType(), block.getBlockData());
-//                    ignitedBlocks.put(block.getLocation(), source);
-//                }
-//                probablyIgnitedThisTick.addAll(e.blockList());
-//            }
-//        } else {
-//            // No idea why this could happen, but why not to handle this 0.01%
-//            if (e.getBlock().getBlockData() instanceof Bed) {
-//                if (getConfig().getBoolean("bed.disable-when-target-not-found")) {
-//                    e.setCancelled(true);
-//                    Collection<Entity> entityCollections = e.getBlock().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
-//                    for (Entity entity : entityCollections) {
-//                        if (entity instanceof Player)
-//                            entity.sendMessage(
-//                                    ChatColor.translateAlternateColorCodes('&',
-//                                            getConfig().getString("msgs.bed-wont-break-blocks")
-//                                    )
-//                            );
-//                    }
-//                }
-//            } else if (e.getBlock().getType() == Material.RESPAWN_ANCHOR) {
-//                if (getConfig().getBoolean("respawn-anchor.disable-when-target-not-found")) {
-//                    e.setCancelled(true);
-//                    Collection<Entity> entityCollections = e.getBlock().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
-//                    for (Entity entity : entityCollections) {
-//                        if (entity instanceof Player)
-//                            entity.sendMessage(
-//                                    ChatColor.translateAlternateColorCodes('&',
-//                                            getConfig().getString("msgs.respawn-anchor-wont-break-blocks")
-//                                    )
-//                            );
-//                    }
-//                }
-//            } else {
-//                if (getConfig().getBoolean("other-explosive-blocks.disable-when-target-not-found")) {
-//                    e.setCancelled(true);
-//                    Collection<Entity> entityCollections = e.getBlock().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
-//                    for (Entity entity : entityCollections) {
-//                        if (entity instanceof Player)
-//                            entity.sendMessage(
-//                                    ChatColor.translateAlternateColorCodes('&',
-//                                            getConfig().getString("msgs.other-explosive-block-wont-break-blocks")
-//                                    )
-//                            );
-//                    }
-//                }
-//            }
-//        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -299,11 +147,13 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
             Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
-            for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
-                //noinspection ConstantConditions
-                if (entry.getKey().getWorld().equals(blockCorner.getWorld()) && entry.getKey().distance(blockCorner) < 0.5) {
-                    probablyCache.put(tnt, entry.getValue());
-                    break;
+            for (Map.Entry<Object, String> entry : probablyCache.asMap().entrySet()) {
+                if(entry.getKey() instanceof Location) {
+                    Location loc = (Location) entry.getKey();
+                    if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 0.5) {
+                        probablyCache.put(tnt, entry.getValue());
+                        break;
+                    }
                 }
             }
         }
@@ -410,11 +260,11 @@ public class Main extends JavaPlugin implements Listener {
         // Entity or EnderCrystal
         if (entity instanceof TNTPrimed || entity instanceof EnderCrystal) {
             if (probablyCache.getIfPresent(entity) != null) {
+                String reason = "#" + entityName + "-" + probablyCache.getIfPresent(entity);
                 for (Block block : blockList) {
-                    api.logRemoval("#" + entityName + "-" + probablyCache.getIfPresent(entity), block.getLocation(), block.getType(), block.getBlockData());
-                    ignitedBlocks.put(block.getLocation(), probablyCache.getIfPresent(entity));
+                    api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+                    probablyCache.put(block.getLocation(),reason);
                 }
-                probablyIgnitedThisTick.addAll(blockList);
                 pendingRemoval.add(entity);
             } else {
                 //Notify players this tnt or end crystal won't break any blocks
@@ -437,8 +287,8 @@ public class Main extends JavaPlugin implements Listener {
                 if (creeperTarget != null) {
                     for (Block block : blockList) {
                         api.logRemoval("#creeper-" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
+                        probablyCache.put(block.getLocation(),"#creeper-" + creeperTarget.getName());
                     }
-                    probablyIgnitedThisTick.addAll(blockList);
                 } else {
                     //Notify players this creeper won't break any blocks
                     if (!section.getBoolean("disable-unknown"))
@@ -450,13 +300,12 @@ public class Main extends JavaPlugin implements Listener {
         }
         if (entity instanceof Fireball) {
             if (probablyCache.getIfPresent(entity) != null) {
-                String reason = probablyCache.getIfPresent(entity);
+                String reason = "#fireball-" +probablyCache.getIfPresent(entity);
                 for (Block block : blockList) {
-                    api.logRemoval("#fireball-" + reason, block.getLocation(), block.getType(), block.getBlockData());
-                    ignitedBlocks.put(block.getLocation(), reason);
+                    api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+                    probablyCache.put(block.getLocation(),reason);
                 }
                 pendingRemoval.add(entity);
-                blockList.forEach(b -> probablyCache.put(b.getLocation(),reason));
             } else {
                 if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
@@ -472,25 +321,26 @@ public class Main extends JavaPlugin implements Listener {
         if (entity instanceof ExplosiveMinecart) {
             boolean isLogged = false;
             Location blockCorner = entity.getLocation().clone().subtract(0.5, 0, 0.5);
-            for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
-                if (entry.getKey().getWorld().equals(blockCorner.getWorld()) && entry.getKey().distance(blockCorner) < 1) {
-                    for (Block block : blockList) {
-                        api.logRemoval("#tntminecart-" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
-                        ignitedBlocks.put(block.getLocation(), entry.getValue());
-                    }
-                    blockList.forEach(b -> probablyCache.put(b.getLocation(),"#tntminecart-" + entry.getValue()));
-                    isLogged = true;
-                    break;
-                }
+            for (Map.Entry<Object, String> entry : probablyCache.asMap().entrySet()) {
+               if(entry.getKey() instanceof Location) {
+                   Location loc = (Location) entry.getKey();
+                   if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 1) {
+                       for (Block block : blockList) {
+                           api.logRemoval("#tntminecart-" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
+                           probablyCache.put(block.getLocation(), "#tntminecart-" + entry.getValue());
+                       }
+                       isLogged = true;
+                       break;
+                   }
+               }
             }
             if (!isLogged) {
                 if (probablyCache.getIfPresent(entity) != null) {
                     String reason = "#tntminecart-" + probablyCache.getIfPresent(entity);
                     for (Block block : blockList) {
                         api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
-                        ignitedBlocks.put(block.getLocation(), reason);
+                        probablyCache.put(block.getLocation(), reason);
                     }
-                    probablyIgnitedThisTick.addAll(blockList);
                     pendingRemoval.add(entity);
                 } else if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
@@ -498,6 +348,6 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
         }
-        pendingRemoval.forEach(explosionSources::remove);
+        pendingRemoval.forEach(probablyCache::invalidate);
     }
 }

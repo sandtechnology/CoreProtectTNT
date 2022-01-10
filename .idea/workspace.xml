@@ -4,12 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ab86340a-f0e9-4624-ab11-7f54cd5099b4" name="Default Changelist" comment="Support">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/coreprotecttnt/Util.java" afterDir="false" />
+    <list default="true" id="ab86340a-f0e9-4624-ab11-7f54cd5099b4" name="Default Changelist" comment="cleanup, added creeper ignite tracking">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/coreprotecttnt/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/coreprotecttnt/Main.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/config.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/plugin.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/plugin.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,7 +39,7 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitToolBoxStore">
-    <option name="projectConfigVersion" value="2" />
+    <option name="projectConfigVersion" value="4" />
     <option name="recentBranches">
       <RecentBranches>
         <option name="branchesForRepo">
@@ -137,7 +135,8 @@
       <workItem from="1595601364755" duration="622000" />
       <workItem from="1595670596476" duration="12000" />
       <workItem from="1597065043000" duration="1264000" />
-      <workItem from="1641784960000" duration="3917000" />
+      <workItem from="1641784960000" duration="4263000" />
+      <workItem from="1641791629388" duration="361000" />
     </task>
     <task id="LOCAL-00001" summary="do not track the html">
       <created>1563878611849</created>
@@ -181,7 +180,14 @@
       <option name="project" value="LOCAL" />
       <updated>1597065597715</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="cleanup, added creeper ignite tracking">
+      <created>1641791476648</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1641791476648</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -205,7 +211,8 @@
     <MESSAGE value="Allow cancel explode when plugin cannot find the source" />
     <MESSAGE value="Support Ghast Fireball" />
     <MESSAGE value="Remove a strange depend" />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove a strange depend" />
+    <MESSAGE value="cleanup, added creeper ignite tracking" />
+    <option name="LAST_COMMIT_MESSAGE" value="cleanup, added creeper ignite tracking" />
   </component>
   <component name="masterDetails">
     <states>
