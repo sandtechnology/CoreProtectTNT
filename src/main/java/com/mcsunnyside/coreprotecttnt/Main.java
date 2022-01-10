@@ -4,7 +4,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
-import net.coreprotect.bukkit.BukkitAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -210,22 +209,7 @@ public class Main extends JavaPlugin implements Listener {
         Block hangingPosBlock = e.getEntity().getLocation().getBlock();
         String reason = probablyCache.getIfPresent(hangingPosBlock.getLocation());
         if (reason != null) {
-            // Copy from CoreProtect itself
-            Material material;
-            int itemData;
-            if (e.getEntity() instanceof ItemFrame) {
-                material = BukkitAdapter.ADAPTER.getFrameType(e.getEntity());
-                ItemFrame itemframe = (ItemFrame) e.getEntity();
-                itemframe.getItem();
-                itemData = net.coreprotect.utility.Util.getBlockId(itemframe.getItem().getType());
-            } else {
-                material = Material.PAINTING;
-                Painting painting = (Painting) e.getEntity();
-                itemData = net.coreprotect.utility.Util.getArtId(painting.getArt().toString(), true);
-
-            }
             api.logRemoval("#" + e.getCause().name() + "-" + reason, hangingPosBlock.getLocation(), Material.matchMaterial(e.getEntity().getType().name()), null);
-            CTNTQueue.queueNaturalBlockBreak("#" + e.getCause().name() + "-" + reason,hangingPosBlock.getState(),hangingPosBlock.getRelative(e.getEntity().getAttachedFace()),material,itemData);
         }
     }
 
