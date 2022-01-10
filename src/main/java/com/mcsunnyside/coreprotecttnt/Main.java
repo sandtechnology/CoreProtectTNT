@@ -271,6 +271,7 @@ public class Main extends JavaPlugin implements Listener {
                 if (!section.getBoolean("disable-unknown", true))
                     return;
                 e.setCancelled(true);
+                e.setYield(0.0f);
                 Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
             }
         }
@@ -294,6 +295,7 @@ public class Main extends JavaPlugin implements Listener {
                     if (!section.getBoolean("disable-unknown"))
                         return;
                     e.setCancelled(true);
+                    e.setYield(0.0f);
                     Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
                 }
             }
@@ -309,6 +311,7 @@ public class Main extends JavaPlugin implements Listener {
             } else {
                 if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
+                    e.setYield(0.0f);
                     Util.broadcastNearPlayers(entity.getLocation(),section.getString("alert"));
                 } else {
                     for (Block block : blockList) {
@@ -344,6 +347,7 @@ public class Main extends JavaPlugin implements Listener {
                     pendingRemoval.add(entity);
                 } else if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
+                    e.setYield(0.0f);
                     Util.broadcastNearPlayers(entity.getLocation(),section.getString("alert"));
                 }
             }
