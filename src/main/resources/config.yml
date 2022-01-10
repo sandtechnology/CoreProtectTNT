@@ -13,3 +13,11 @@ fire:
   enable: true
   disable-unknown: true
   alert: "&cAn fire spreading/burning has been blocked because that caused by unknown object."
+itemframe:
+  enable: true
+  disable-unknown: true
+  alert: "&cBlocked item-frame destroy because that caused by unknown object."
+painting:
+  enable: true
+  disable-unknown: true
+    alert: "&cBlocked painting destroy because that caused by unknown object."

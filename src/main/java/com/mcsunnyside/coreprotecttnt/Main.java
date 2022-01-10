@@ -7,6 +7,7 @@ import net.coreprotect.CoreProtectAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
+import org.bukkit.block.TileState;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -22,6 +23,7 @@ import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.entity.*;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
@@ -53,15 +55,13 @@ public class Main extends JavaPlugin implements Listener {
         api = ((CoreProtect) depend).getAPI();
     }
 
+    // Bed explosion (tracing)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onPlayerInteract(PlayerInteractEvent e) {
-        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) {
+    public void onPlayerInteractBedExplosion(PlayerInteractEvent e) {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK)
             return;
-        }
-
         Block clickedBlock = e.getClickedBlock();
         Location locationHead = clickedBlock.getLocation();
-
         if (clickedBlock.getBlockData() instanceof Bed) {
             Bed bed = (Bed) clickedBlock.getBlockData();
             Location locationFoot = locationHead.clone().subtract(bed.getFacing().getDirection());
@@ -69,106 +69,199 @@ public class Main extends JavaPlugin implements Listener {
                 locationHead.add(bed.getFacing().getDirection());
             }
             String reason = "#bed-" + e.getPlayer().getName();
-            //api.logRemoval(reason, locationHead, clickedBlock.getType(), bed); // head
-            //api.logRemoval(reason, locationFoot, clickedBlock.getType(), clickedBlock.getBlockData());
-
             probablyCache.put(locationHead, reason);
             probablyCache.put(locationFoot, reason);
         }
-
         if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
-            probablyCache.put(clickedBlock.getLocation(), "#respawn-anchor-" + e.getPlayer().getName());
+            probablyCache.put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
         }
     }
 
+    // Creeper ignite (tracing)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
-        if (e.getRightClicked() instanceof Creeper) {
-            probablyCache.put(e.getRightClicked(), "#ignite-creeper-" + e.getPlayer().getName());
-        }
+        if (!(e.getRightClicked() instanceof Creeper))
+            return;
+        probablyCache.put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
     }
 
+    // Block explode (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockExplode(BlockExplodeEvent e) {
         ConfigurationSection section = Util.bakeConfigSection(getConfig(), "block-explosion");
         if (!section.getBoolean("enable", true))
             return;
-
         Location location = e.getBlock().getLocation();
         String probablyCauses = probablyCache.getIfPresent(e.getBlock());
         if (probablyCauses == null)
             probablyCauses = probablyCache.getIfPresent(location);
-
         if (probablyCauses == null) {
             if (section.getBoolean("disable-unknown", true)) {
                 e.setCancelled(true);
                 Util.broadcastNearPlayers(location, section.getString("alert"));
             }
         }
-
         // Found causes, let's begin for logging
         for (Block block : e.blockList()) {
             api.logRemoval(probablyCauses, block.getLocation(), block.getType(), block.getBlockData());
         }
     }
 
+    // Player item put into ItemFrame / Rotate ItemFrame (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onFireballLaunch(ProjectileLaunchEvent e) {
-        if (e.getEntity().getShooter() != null) {
-            if (e.getEntityType() == EntityType.FIREBALL) {
-                String source = "#" + ((Entity) e.getEntity().getShooter()).getType().name() + "-fireball";
-                if (e.getEntity().getShooter() instanceof Ghast && ((Ghast) e.getEntity().getShooter()).getTarget() != null) {
-                    Entity target = ((Ghast) e.getEntity().getShooter()).getTarget();
-                    String targetName = target.getType() == EntityType.PLAYER ? target.getName() : target.getType().name();
-                    source += "-" + targetName;
-                }
-                probablyCache.put(e.getEntity(), source);
+    public void onClickItemFrame(PlayerInteractEntityEvent e) { // Add item to item-frame or rotating
+        if (!(e.getRightClicked() instanceof ItemFrame))
+            return;
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "itemframe");
+        if (!section.getBoolean("enable", true))
+            return;
+        ItemFrame itemFrame = (ItemFrame) e.getRightClicked();
+        // Player interacted itemframe
+        api.logInteraction(e.getPlayer().getName(), e.getRightClicked().getLocation());
+        // Check item I/O
+        if (itemFrame.getItem().getType().isAir()) { // Probably put item now
+            ItemStack mainItem = e.getPlayer().getInventory().getItemInMainHand();
+            ItemStack offItem = e.getPlayer().getInventory().getItemInOffHand();
+            ItemStack putIn = mainItem.getType().isAir() ? offItem : mainItem;
+            if (!putIn.getType().isAir()) {
+                // Put in item
+                api.logPlacement("#additem-" + e.getPlayer().getName(), e.getRightClicked().getLocation(), putIn.getType(), null);
+                return;
+            }
+        }
+        // Probably rotating ItemFrame
+        api.logRemoval("#rotate-" + e.getPlayer().getName(), e.getRightClicked().getLocation(), itemFrame.getItem().getType(), null);
+        api.logPlacement("#rotate-" + e.getPlayer().getName(), e.getRightClicked().getLocation(), itemFrame.getItem().getType(), null);
+    }
+
+    // Any projectile shoot (listener)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onProjectileLaunch(ProjectileLaunchEvent e) {
+        if (e.getEntity().getShooter() == null)
+            return;
+        ProjectileSource projectileSource = e.getEntity().getShooter();
+        String source = "";
+        if (!(projectileSource instanceof Player))
+            source += "#"; // We only hope non-player object use hashtag
+        source +=  e.getEntity().getName() + "-";
+        if (projectileSource instanceof Entity) {
+            if (projectileSource instanceof Mob) {
+                source += ((Mob) projectileSource).getTarget().getName();
+            } else {
+                source += ((Entity) projectileSource).getName();
+            }
+            probablyCache.put(projectileSource, source);
+        } else {
+            if (projectileSource instanceof Block) {
+                source += ((Block) projectileSource).getType().name();
+                probablyCache.put(((Block) projectileSource).getLocation(), source);
+            } else {
+                source += projectileSource.getClass().getName();
+                probablyCache.put(projectileSource, source);
             }
         }
     }
 
+    // TNT ignites by Player (listener)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onIgnite(EntitySpawnEvent e) {
+    public void onIgniteTNT(EntitySpawnEvent e) {
         Entity tnt = e.getEntity();
-        if (e.getEntity() instanceof TNTPrimed) {
-            TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
-            Entity source = tntPrimed.getSource();
-            if (source != null) {
-                //Bukkit has given the ignition source, track it directly.
-                if (probablyCache.getIfPresent(source) != null) {
-                    probablyCache.put(tnt, probablyCache.getIfPresent(source));
-                }
-                if (source.getType() == EntityType.PLAYER) {
-                    probablyCache.put(tntPrimed, source.getName());
-                    return;
-                }
+        if (!(e.getEntity() instanceof TNTPrimed))
+            return;
+        TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
+        Entity source = tntPrimed.getSource();
+        if (source != null) {
+            //Bukkit has given the ignition source, track it directly.
+            if (probablyCache.getIfPresent(source) != null) {
+                probablyCache.put(tnt, probablyCache.getIfPresent(source));
             }
-            Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
-            for (Map.Entry<Object, String> entry : probablyCache.asMap().entrySet()) {
-                if (entry.getKey() instanceof Location) {
-                    Location loc = (Location) entry.getKey();
-                    if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 0.5) {
-                        probablyCache.put(tnt, entry.getValue());
-                        break;
-                    }
+            if (source.getType() == EntityType.PLAYER) {
+                probablyCache.put(tntPrimed, source.getName());
+                return;
+            }
+        }
+        Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
+        for (Map.Entry<Object, String> entry : probablyCache.asMap().entrySet()) {
+            if (entry.getKey() instanceof Location) {
+                Location loc = (Location) entry.getKey();
+                if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 0.5) {
+                    probablyCache.put(tnt, entry.getValue());
+                    break;
                 }
             }
         }
     }
-
+    // EndCrystal rigged by entity (listener)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onEndCrystalHit(EntityDamageByEntityEvent e) {
-        if (e.getEntityType() == EntityType.ENDER_CRYSTAL) {
-            if (e.getDamager() instanceof Player) {
-                probablyCache.put(e.getEntity(), e.getDamager().getName());
+        if (!(e.getEntity() instanceof EnderCrystal))
+            return;
+        if (e.getDamager() instanceof Player) {
+            probablyCache.put(e.getEntity(), e.getDamager().getName());
+        } else {
+            if (probablyCache.getIfPresent(e.getDamager()) != null) {
+                probablyCache.put(e.getEntity(), probablyCache.getIfPresent(e.getDamager()));
+            } else if (e.getDamager() instanceof Projectile) {
+                Projectile projectile = (Projectile) e.getDamager();
+                if (projectile.getShooter() != null && projectile.getShooter() instanceof Player) {
+                    probablyCache.put(e.getEntity(), ((Player) projectile.getShooter()).getName());
+                }
+            }
+        }
+    }
+    // ItemFrame hit by entity (logger)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onItemFrameHit(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof ItemFrame))
+            return;
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "itemframe");
+        if (!section.getBoolean("enable", true))
+            return;
+        ItemFrame itemFrame = (ItemFrame) e.getEntity();
+        if (itemFrame.getItem().getType().isAir() || itemFrame.isInvulnerable())
+            return;
+        if (e.getDamager() instanceof Player) {
+            api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
+            api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+        } else {
+            if (probablyCache.getIfPresent(e.getDamager()) != null) {
+                String reason = "#" + e.getDamager().getName() + "-" + probablyCache.getIfPresent(e.getDamager());
+                api.logInteraction(reason, itemFrame.getLocation());
+                api.logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
             } else {
-                if (probablyCache.getIfPresent(e.getDamager()) != null) {
-                    probablyCache.put(e.getEntity(), probablyCache.getIfPresent(e.getDamager()));
-                } else if (e.getDamager() instanceof Projectile) {
-                    Projectile projectile = (Projectile) e.getDamager();
-                    if (projectile.getShooter() != null && projectile.getShooter() instanceof Player) {
-                        probablyCache.put(e.getEntity(), ((Player) projectile.getShooter()).getName());
-                    }
+                if (section.getBoolean("disable-unknown")) {
+                    e.setCancelled(true);
+                    e.setDamage(0.0d);
+                    Util.broadcastNearPlayers(e.getEntity().getLocation(), section.getString("alert"));
+                }
+            }
+        }
+    }
+    // Painting hit by entity
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPaintingHit(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Painting))
+            return;
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "painting");
+        if (!section.getBoolean("enable", true))
+            return;
+        ItemFrame itemFrame = (ItemFrame) e.getEntity();
+        if (itemFrame.getItem().getType().isAir() || itemFrame.isInvulnerable())
+            return;
+
+        if(e.getDamager() instanceof Player) {
+            api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
+            api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+        }else{
+            String reason = probablyCache.getIfPresent(e.getDamager());
+            if(reason != null){
+                api.logInteraction("#"+e.getDamager().getName()+"-"+reason, itemFrame.getLocation());
+                api.logRemoval("#"+e.getDamager().getName()+"-"+reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+            }else{
+                if (section.getBoolean("disable-unknown")) {
+                    e.setCancelled(true);
+                    e.setDamage(0.0d);
+                    Util.broadcastNearPlayers(e.getEntity().getLocation(), section.getString("alert"));
                 }
             }
         }
@@ -225,21 +318,22 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onExplodableHit(ProjectileHitEvent e) {
-        if (e.getHitEntity() != null) {
-            if (e.getHitEntity() instanceof ExplosiveMinecart || e.getEntityType() == EntityType.ENDER_CRYSTAL) {
-                if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
-                    if (probablyCache.getIfPresent(e.getEntity()) != null) {
-                        probablyCache.put(e.getHitEntity(), probablyCache.getIfPresent(e.getEntity()));
-                    } else {
-                        if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
-                            probablyCache.put(e.getHitEntity(), ((Player) e.getEntity().getShooter()).getName());
-                        }
+    public void onBombHit(ProjectileHitEvent e) {
+        if (e.getHitEntity() == null)
+            return;
+        if (e.getHitEntity() instanceof ExplosiveMinecart || e.getEntityType() == EntityType.ENDER_CRYSTAL) {
+            if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
+                if (probablyCache.getIfPresent(e.getEntity()) != null) {
+                    probablyCache.put(e.getHitEntity(), probablyCache.getIfPresent(e.getEntity()));
+                } else {
+                    if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
+                        probablyCache.put(e.getHitEntity(), ((Player) e.getEntity().getShooter()).getName());
                     }
                 }
             }
         }
     }
+
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onExplode(EntityExplodeEvent e) {
@@ -254,10 +348,11 @@ public class Main extends JavaPlugin implements Listener {
         ConfigurationSection section = Util.bakeConfigSection(getConfig(), "entity-explosion");
         if (!section.getBoolean("enable", true))
             return;
+        String track = probablyCache.getIfPresent(entity);
         // Entity or EnderCrystal
         if (entity instanceof TNTPrimed || entity instanceof EnderCrystal) {
-            if (probablyCache.getIfPresent(entity) != null) {
-                String reason = "#" + entityName + "-" + probablyCache.getIfPresent(entity);
+            if (track != null) {
+                String reason = "#" + entityName + "-" + track;
                 for (Block block : blockList) {
                     api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
                     probablyCache.put(block.getLocation(), reason);
@@ -269,15 +364,16 @@ public class Main extends JavaPlugin implements Listener {
                     return;
                 e.setCancelled(true);
                 e.setYield(0.0f);
+                e.getEntity().remove();
                 Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
             }
         }
         // Creeper... aww man
         if (entity instanceof Creeper) {
             // New added: Player ignite creeper
-            if (probablyCache.getIfPresent(entity) != null) {
+            if (track != null) {
                 for (Block block : blockList) {
-                    api.logRemoval(probablyCache.getIfPresent(entity), block.getLocation(), block.getType(), block.getBlockData());
+                    api.logRemoval(track, block.getLocation(), block.getType(), block.getBlockData());
                 }
             } else {
                 Creeper creeper = (Creeper) entity;
@@ -293,13 +389,14 @@ public class Main extends JavaPlugin implements Listener {
                         return;
                     e.setCancelled(true);
                     e.setYield(0.0f);
+                    e.getEntity().remove();
                     Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
                 }
             }
         }
         if (entity instanceof Fireball) {
-            if (probablyCache.getIfPresent(entity) != null) {
-                String reason = "#fireball-" + probablyCache.getIfPresent(entity);
+            if (track != null) {
+                String reason = "#fireball-" + track;
                 for (Block block : blockList) {
                     api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
                     probablyCache.put(block.getLocation(), reason);
@@ -309,12 +406,8 @@ public class Main extends JavaPlugin implements Listener {
                 if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
                     e.setYield(0.0f);
+                    e.getEntity().remove();
                     Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
-                } else {
-                    for (Block block : blockList) {
-                        api.logRemoval("#fireball-" + "MissingNo", block.getLocation(), block.getType(), block.getBlockData());
-                    }
-                    blockList.forEach(b -> probablyCache.put(b.getLocation(), "#fireball-" + "MissingNo"));
                 }
             }
         }
@@ -345,6 +438,7 @@ public class Main extends JavaPlugin implements Listener {
                 } else if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
                     e.setYield(0.0f);
+                    e.getEntity().remove();
                     Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                 }
             }
