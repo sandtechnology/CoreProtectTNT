@@ -17,7 +17,7 @@ itemframe:
   enable: true
   disable-unknown: true
   alert: "&cBlocked item-frame destroy because that caused by unknown object."
-painting:
+hanging:
   enable: true
   disable-unknown: true
-    alert: "&cBlocked painting destroy because that caused by unknown object."
+  alert: "&cBlocked hanging destroy because that caused by unknown object."

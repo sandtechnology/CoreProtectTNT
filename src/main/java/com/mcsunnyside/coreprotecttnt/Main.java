@@ -4,10 +4,11 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
+import net.coreprotect.bukkit.BukkitAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.block.TileState;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -16,11 +17,9 @@ import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBurnEvent;
-import org.bukkit.event.block.BlockExplodeEvent;
-import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.*;
 import org.bukkit.event.entity.*;
+import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -39,6 +38,7 @@ public class Main extends JavaPlugin implements Listener {
     private final Cache<Object, String> probablyCache = CacheBuilder
             .newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS)
+            .maximumSize(10000)
             .concurrencyLevel(2) // Sync and Async threads
             .recordStats()
             .build();
@@ -107,6 +107,12 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockPlaceOnHanging(BlockPlaceEvent event){
+        // We can't check the hanging in this event, may cause server lagging, just store it
+        probablyCache.put(event.getBlock().getLocation(), event.getPlayer().getName());
+    }
+
     // Player item put into ItemFrame / Rotate ItemFrame (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onClickItemFrame(PlayerInteractEntityEvent e) { // Add item to item-frame or rotating
@@ -161,7 +167,6 @@ public class Main extends JavaPlugin implements Listener {
             }
         }
     }
-
     // TNT ignites by Player (listener)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onIgniteTNT(EntitySpawnEvent e) {
@@ -191,6 +196,34 @@ public class Main extends JavaPlugin implements Listener {
             }
         }
     }
+    // HangingBreak (logger)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onHangingBreak(HangingBreakEvent e) {
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "hanging");
+        if (!section.getBoolean("enable", true))
+            return;
+        if(e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS || e.getCause() == HangingBreakEvent.RemoveCause.DEFAULT)
+            return; // We can't track them tho.
+
+        Block hangingPosBlock = e.getEntity().getLocation().getBlock();
+        String reason = probablyCache.getIfPresent(hangingPosBlock.getLocation());
+        if(reason != null) {
+            // Copy from CoreProtect itself
+            Material material;
+            int itemData;
+            if (e.getEntity() instanceof ItemFrame) {
+                material = BukkitAdapter.ADAPTER.getFrameType(e.getEntity());
+                ItemFrame itemframe = (ItemFrame)e.getEntity();
+                itemframe.getItem();
+                itemData = net.coreprotect.utility.Util.getBlockId(itemframe.getItem().getType());
+            } else {
+                material = Material.PAINTING;
+                Painting painting = (Painting)e.getEntity();
+                itemData = net.coreprotect.utility.Util.getArtId(painting.getArt().toString(), true);
+            }
+            CTNTQueue.queueNaturalBlockBreak("#"+e.getCause().name()+"-"+reason, hangingPosBlock.getState(), hangingPosBlock.getRelative(e.getEntity().getAttachedFace()), material, itemData);
+        }
+    }
     // EndCrystal rigged by entity (listener)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onEndCrystalHit(EntityDamageByEntityEvent e) {
@@ -209,10 +242,10 @@ public class Main extends JavaPlugin implements Listener {
             }
         }
     }
-    // ItemFrame hit by entity (logger)
+    // Haning hit by entity (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onItemFrameHit(EntityDamageByEntityEvent e) {
-        if (!(e.getEntity() instanceof ItemFrame))
+    public void onHangingHit(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Hanging))
             return;
         ConfigurationSection section = Util.bakeConfigSection(getConfig(), "itemframe");
         if (!section.getBoolean("enable", true))
@@ -221,19 +254,15 @@ public class Main extends JavaPlugin implements Listener {
         if (itemFrame.getItem().getType().isAir() || itemFrame.isInvulnerable())
             return;
         if (e.getDamager() instanceof Player) {
+            probablyCache.put(e.getEntity(),e.getDamager().getName());
             api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
             api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
         } else {
             if (probablyCache.getIfPresent(e.getDamager()) != null) {
                 String reason = "#" + e.getDamager().getName() + "-" + probablyCache.getIfPresent(e.getDamager());
+                probablyCache.put(e.getEntity(),reason);
                 api.logInteraction(reason, itemFrame.getLocation());
                 api.logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
-            } else {
-                if (section.getBoolean("disable-unknown")) {
-                    e.setCancelled(true);
-                    e.setDamage(0.0d);
-                    Util.broadcastNearPlayers(e.getEntity().getLocation(), section.getString("alert"));
-                }
             }
         }
     }
@@ -316,6 +345,17 @@ public class Main extends JavaPlugin implements Listener {
             }
         }
     }
+
+//    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+//    public void onHopperMinecart(InventoryPickupItemEvent e) {
+//        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "hopper-mincrart-pick-item");
+//        if (!section.getBoolean("enable", true))
+//            return;
+//        if(e.getInventory().getHolder() instanceof Minecart){
+//            Queue.
+//        }
+//    }
+
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBombHit(ProjectileHitEvent e) {
