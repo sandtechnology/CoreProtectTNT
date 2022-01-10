@@ -108,7 +108,7 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onBlockPlaceOnHanging(BlockPlaceEvent event){
+    public void onBlockPlaceOnHanging(BlockPlaceEvent event) {
         // We can't check the hanging in this event, may cause server lagging, just store it
         probablyCache.put(event.getBlock().getLocation(), event.getPlayer().getName());
     }
@@ -149,7 +149,7 @@ public class Main extends JavaPlugin implements Listener {
         String source = "";
         if (!(projectileSource instanceof Player))
             source += "#"; // We only hope non-player object use hashtag
-        source +=  e.getEntity().getName() + "-";
+        source += e.getEntity().getName() + "-";
         if (projectileSource instanceof Entity) {
             if (projectileSource instanceof Mob) {
                 source += ((Mob) projectileSource).getTarget().getName();
@@ -167,6 +167,7 @@ public class Main extends JavaPlugin implements Listener {
             }
         }
     }
+
     // TNT ignites by Player (listener)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onIgniteTNT(EntitySpawnEvent e) {
@@ -196,34 +197,36 @@ public class Main extends JavaPlugin implements Listener {
             }
         }
     }
+
     // HangingBreak (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onHangingBreak(HangingBreakEvent e) {
         ConfigurationSection section = Util.bakeConfigSection(getConfig(), "hanging");
         if (!section.getBoolean("enable", true))
             return;
-        if(e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS || e.getCause() == HangingBreakEvent.RemoveCause.DEFAULT)
+        if (e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS || e.getCause() == HangingBreakEvent.RemoveCause.DEFAULT)
             return; // We can't track them tho.
 
         Block hangingPosBlock = e.getEntity().getLocation().getBlock();
         String reason = probablyCache.getIfPresent(hangingPosBlock.getLocation());
-        if(reason != null) {
+        if (reason != null) {
             // Copy from CoreProtect itself
             Material material;
             int itemData;
             if (e.getEntity() instanceof ItemFrame) {
                 material = BukkitAdapter.ADAPTER.getFrameType(e.getEntity());
-                ItemFrame itemframe = (ItemFrame)e.getEntity();
+                ItemFrame itemframe = (ItemFrame) e.getEntity();
                 itemframe.getItem();
                 itemData = net.coreprotect.utility.Util.getBlockId(itemframe.getItem().getType());
             } else {
                 material = Material.PAINTING;
-                Painting painting = (Painting)e.getEntity();
+                Painting painting = (Painting) e.getEntity();
                 itemData = net.coreprotect.utility.Util.getArtId(painting.getArt().toString(), true);
             }
-            CTNTQueue.queueNaturalBlockBreak("#"+e.getCause().name()+"-"+reason, hangingPosBlock.getState(), hangingPosBlock.getRelative(e.getEntity().getAttachedFace()), material, itemData);
+            api.logRemoval("#" + e.getCause().name() + "-" + reason, hangingPosBlock.getLocation(), Material.matchMaterial(e.getEntity().getType().name()), null);
         }
     }
+
     // EndCrystal rigged by entity (listener)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onEndCrystalHit(EntityDamageByEntityEvent e) {
@@ -242,6 +245,7 @@ public class Main extends JavaPlugin implements Listener {
             }
         }
     }
+
     // Haning hit by entity (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onHangingHit(EntityDamageByEntityEvent e) {
@@ -254,18 +258,19 @@ public class Main extends JavaPlugin implements Listener {
         if (itemFrame.getItem().getType().isAir() || itemFrame.isInvulnerable())
             return;
         if (e.getDamager() instanceof Player) {
-            probablyCache.put(e.getEntity(),e.getDamager().getName());
+            probablyCache.put(e.getEntity(), e.getDamager().getName());
             api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
             api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
         } else {
             if (probablyCache.getIfPresent(e.getDamager()) != null) {
                 String reason = "#" + e.getDamager().getName() + "-" + probablyCache.getIfPresent(e.getDamager());
-                probablyCache.put(e.getEntity(),reason);
+                probablyCache.put(e.getEntity(), reason);
                 api.logInteraction(reason, itemFrame.getLocation());
                 api.logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
             }
         }
     }
+
     // Painting hit by entity
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPaintingHit(EntityDamageByEntityEvent e) {
@@ -278,15 +283,15 @@ public class Main extends JavaPlugin implements Listener {
         if (itemFrame.getItem().getType().isAir() || itemFrame.isInvulnerable())
             return;
 
-        if(e.getDamager() instanceof Player) {
+        if (e.getDamager() instanceof Player) {
             api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
             api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
-        }else{
+        } else {
             String reason = probablyCache.getIfPresent(e.getDamager());
-            if(reason != null){
-                api.logInteraction("#"+e.getDamager().getName()+"-"+reason, itemFrame.getLocation());
-                api.logRemoval("#"+e.getDamager().getName()+"-"+reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
-            }else{
+            if (reason != null) {
+                api.logInteraction("#" + e.getDamager().getName() + "-" + reason, itemFrame.getLocation());
+                api.logRemoval("#" + e.getDamager().getName() + "-" + reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+            } else {
                 if (section.getBoolean("disable-unknown")) {
                     e.setCancelled(true);
                     e.setDamage(0.0d);
@@ -346,13 +351,26 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
+//    Will make empty records for unknown reason :(
 //    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-//    public void onHopperMinecart(InventoryPickupItemEvent e) {
-//        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "hopper-mincrart-pick-item");
+//    public void onEntityPickup(InventoryPickupItemEvent e) {
+//        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "entity-pickup");
 //        if (!section.getBoolean("enable", true))
 //            return;
-//        if(e.getInventory().getHolder() instanceof Minecart){
-//            Queue.
+//        if (!(e.getInventory().getHolder() instanceof Entity))
+//            return;
+//        // Copy from CoreProtect
+//        Item item = e.getItem();
+//        Location location = item.getLocation();
+//        ItemStack itemStack = item.getItemStack();
+//        if (itemStack != null) {
+//            String loggingItemId = "#" + ((Entity) e.getInventory().getHolder()).getName().replace(" ", "_") + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+//            int itemId = CTNTQueue.getItemId(loggingItemId);
+//            List<ItemStack> list = (List) ConfigHandler.itemsPickup.getOrDefault(loggingItemId, new ArrayList());
+//            list.add(itemStack.clone());
+//            ConfigHandler.itemsPickup.put(loggingItemId, list);
+//            int time = (int) (System.currentTimeMillis() / 1000L) + 1;
+//            CTNTQueue.queueItemTransaction("#" + ((Entity) e.getInventory().getHolder()).getName().replace(" ", "_"), location.clone(), time, itemId);
 //        }
 //    }
 

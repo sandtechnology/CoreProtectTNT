@@ -21,3 +21,5 @@ hanging:
   enable: true
   disable-unknown: true
   alert: "&cBlocked hanging destroy because that caused by unknown object."
+entity-pickup:
+  enable: true

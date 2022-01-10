@@ -22,6 +22,24 @@ public class CTNTQueue {
             methodMapping.put(declaredMethod.getName(),declaredMethod);
         }
     }
+
+    protected static synchronized int getChestId(String id) {
+        try {
+            return (int)methodMapping.get("getChestId").invoke(null,id);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    protected static synchronized int getItemId(String id) {
+        try {
+            return (int)methodMapping.get("getItemId").invoke(null,id);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
     protected static synchronized void queueContainerTransaction(String user, Location location, Material type, Object inventory, int chestId) {
         try {
             methodMapping.get("queueContainerTransaction").invoke(null,user,location,type,inventory,chestId);
