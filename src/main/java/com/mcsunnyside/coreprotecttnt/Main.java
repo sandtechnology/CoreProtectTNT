@@ -53,7 +53,7 @@ public class Main extends JavaPlugin implements Listener {
         api = ((CoreProtect) depend).getAPI();
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteract(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
@@ -81,7 +81,7 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
         if (e.getRightClicked() instanceof Creeper) {
             probablyCache.put(e.getRightClicked(), "#ignite-creeper-" + e.getPlayer().getName());
