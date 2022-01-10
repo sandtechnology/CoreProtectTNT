@@ -222,8 +222,10 @@ public class Main extends JavaPlugin implements Listener {
                 material = Material.PAINTING;
                 Painting painting = (Painting) e.getEntity();
                 itemData = net.coreprotect.utility.Util.getArtId(painting.getArt().toString(), true);
+
             }
             api.logRemoval("#" + e.getCause().name() + "-" + reason, hangingPosBlock.getLocation(), Material.matchMaterial(e.getEntity().getType().name()), null);
+            CTNTQueue.queueNaturalBlockBreak("#" + e.getCause().name() + "-" + reason,hangingPosBlock.getState(),hangingPosBlock.getRelative(e.getEntity().getAttachedFace()),material,itemData);
         }
     }
 
