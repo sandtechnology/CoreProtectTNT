@@ -8,6 +8,9 @@ import org.bukkit.entity.Player;
 
 public class Util {
     public static void broadcastNearPlayers(Location location, String message){
+        if(message == null || message.isEmpty()){
+            return; // Do not send empty message
+        }
         //noinspection ConstantConditions
         location.getWorld().getNearbyEntities(location, 15, 15, 15).forEach(entity -> {
             if(entity instanceof Player){

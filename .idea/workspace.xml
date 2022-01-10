@@ -4,10 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ab86340a-f0e9-4624-ab11-7f54cd5099b4" name="Default Changelist" comment="cleanup, added creeper ignite tracking">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/coreprotecttnt/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/coreprotecttnt/Main.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/config.yml" afterDir="false" />
+    <list default="true" id="ab86340a-f0e9-4624-ab11-7f54cd5099b4" name="Default Changelist" comment="merge everying into same list">
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/coreprotecttnt/Util.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/mcsunnyside/coreprotecttnt/Util.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -136,7 +134,7 @@
       <workItem from="1595670596476" duration="12000" />
       <workItem from="1597065043000" duration="1264000" />
       <workItem from="1641784960000" duration="4263000" />
-      <workItem from="1641791629388" duration="361000" />
+      <workItem from="1641791629388" duration="566000" />
     </task>
     <task id="LOCAL-00001" summary="do not track the html">
       <created>1563878611849</created>
@@ -187,7 +185,14 @@
       <option name="project" value="LOCAL" />
       <updated>1641791476648</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="merge everying into same list">
+      <created>1641792003428</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1641792003428</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -212,7 +217,8 @@
     <MESSAGE value="Support Ghast Fireball" />
     <MESSAGE value="Remove a strange depend" />
     <MESSAGE value="cleanup, added creeper ignite tracking" />
-    <option name="LAST_COMMIT_MESSAGE" value="cleanup, added creeper ignite tracking" />
+    <MESSAGE value="merge everying into same list" />
+    <option name="LAST_COMMIT_MESSAGE" value="merge everying into same list" />
   </component>
   <component name="masterDetails">
     <states>
