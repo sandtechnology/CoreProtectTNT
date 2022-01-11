@@ -37,8 +37,7 @@ public class Main extends JavaPlugin implements Listener {
     private final Cache<Object, String> probablyCache = CacheBuilder
             .newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS)
-            .maximumSize(10000)
-            .concurrencyLevel(2) // Sync and Async threads
+            .concurrencyLevel(4) // Sync and Async threads
             .recordStats()
             .build();
 
