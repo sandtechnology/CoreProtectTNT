@@ -406,8 +406,7 @@ public class Main extends JavaPlugin implements Listener {
                 //Notify players this tnt or end crystal won't break any blocks
                 if (!section.getBoolean("disable-unknown", true))
                     return;
-                e.setCancelled(true);
-                e.setYield(0.0f);
+                e.blockList().clear();
                 e.getEntity().remove();
                 Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
             }
@@ -431,8 +430,7 @@ public class Main extends JavaPlugin implements Listener {
                     //Notify players this creeper won't break any blocks
                     if (!section.getBoolean("disable-unknown"))
                         return;
-                    e.setCancelled(true);
-                    e.setYield(0.0f);
+                    e.blockList().clear();
                     e.getEntity().remove();
                     Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
                 }
@@ -448,8 +446,7 @@ public class Main extends JavaPlugin implements Listener {
                 pendingRemoval.add(entity);
             } else {
                 if (section.getBoolean("disable-unknown")) {
-                    e.setCancelled(true);
-                    e.setYield(0.0f);
+                    e.blockList().clear();
                     e.getEntity().remove();
                     Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                 }
@@ -480,8 +477,7 @@ public class Main extends JavaPlugin implements Listener {
                     }
                     pendingRemoval.add(entity);
                 } else if (section.getBoolean("disable-unknown")) {
-                    e.setCancelled(true);
-                    e.setYield(0.0f);
+                    e.blockList().clear();
                     e.getEntity().remove();
                     Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                 }
