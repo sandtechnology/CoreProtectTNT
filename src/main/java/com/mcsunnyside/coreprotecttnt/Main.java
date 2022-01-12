@@ -36,7 +36,7 @@ public class Main extends JavaPlugin implements Listener {
     private CoreProtectAPI api;
     private final Cache<Object, String> probablyCache = CacheBuilder
             .newBuilder()
-            .expireAfterAccess(1, TimeUnit.HOURS)
+            .expireAfterAccess(12, TimeUnit.HOURS)
             .concurrencyLevel(4) // Sync and Async threads
             .recordStats()
             .build();
@@ -149,7 +149,7 @@ public class Main extends JavaPlugin implements Listener {
             source += "#"; // We only hope non-player object use hashtag
         source += e.getEntity().getName() + "-";
         if (projectileSource instanceof Entity) {
-            if (projectileSource instanceof Mob) {
+            if (projectileSource instanceof Mob && ((Mob) projectileSource).getTarget() != null) {
                 source += ((Mob) projectileSource).getTarget().getName();
             } else {
                 source += ((Entity) projectileSource).getName();
