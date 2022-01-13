@@ -506,11 +506,7 @@ public class Main extends JavaPlugin implements Listener {
             EntityDamageEvent cause = e.getEntity().getLastDamageCause();
             if(cause != null){
                 if(cause instanceof EntityDamageByEntityEvent){
-                    if(((EntityDamageByEntityEvent) cause).getDamager() instanceof Player) {
-                        track = ((EntityDamageByEntityEvent) cause).getDamager().getName();
-                    }else{
-                        track = "#"+((EntityDamageByEntityEvent) cause).getDamager().getName();
-                    }
+                    track = "#"+e.getEntity().getName()+"-"+((EntityDamageByEntityEvent) cause).getDamager().getName();
                 }
             }
         }
