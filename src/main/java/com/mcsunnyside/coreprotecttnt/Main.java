@@ -95,7 +95,7 @@ public class Main extends JavaPlugin implements Listener {
             probablyCauses = probablyCache.getIfPresent(location);
         if (probablyCauses == null) {
             if (section.getBoolean("disable-unknown", true)) {
-                e.setCancelled(true);
+                e.blockList().clear();
                 Util.broadcastNearPlayers(location, section.getString("alert"));
             }
         }
@@ -111,6 +111,12 @@ public class Main extends JavaPlugin implements Listener {
         probablyCache.put(event.getBlock().getLocation(), event.getPlayer().getName());
     }
 
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockBreak(BlockPlaceEvent event) {
+        // We can't check the hanging in this event, may cause server lagging, just store it
+        // Maybe a player break the tnt and a plugin igniting it?
+        probablyCache.put(event.getBlock().getLocation(), event.getPlayer().getName());
+    }
     // Player item put into ItemFrame / Rotate ItemFrame (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onClickItemFrame(PlayerInteractEntityEvent e) { // Add item to item-frame or rotating
@@ -409,6 +415,8 @@ public class Main extends JavaPlugin implements Listener {
                 e.getEntity().remove();
                 Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
             }
+            pendingRemoval.forEach(probablyCache::invalidate);
+            return;
         }
         // Creeper... aww man
         if (entity instanceof Creeper) {
@@ -432,8 +440,11 @@ public class Main extends JavaPlugin implements Listener {
                     e.blockList().clear();
                     e.getEntity().remove();
                     Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
+                    return;
                 }
             }
+            pendingRemoval.forEach(probablyCache::invalidate);
+            return;
         }
         if (entity instanceof Fireball) {
             if (track != null) {
@@ -450,6 +461,8 @@ public class Main extends JavaPlugin implements Listener {
                     Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                 }
             }
+            pendingRemoval.forEach(probablyCache::invalidate);
+            return;
         }
         if (entity instanceof ExplosiveMinecart) {
             boolean isLogged = false;
@@ -481,7 +494,13 @@ public class Main extends JavaPlugin implements Listener {
                     Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                 }
             }
+            pendingRemoval.forEach(probablyCache::invalidate);
+            return;
         }
-        pendingRemoval.forEach(probablyCache::invalidate);
+        // No matches, plugin explode or cannot to track?
+
+        if(track != null && !track.isEmpty()){
+            e.blockList().forEach(block-> api.logRemoval(track,block.getLocation(),block.getType(),block.getBlockData()));
+        }
     }
 }
