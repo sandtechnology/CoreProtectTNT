@@ -497,10 +497,28 @@ public class Main extends JavaPlugin implements Listener {
             pendingRemoval.forEach(probablyCache::invalidate);
             return;
         }
+       if(track == null || track.isEmpty()){
+           if(e.getEntity() instanceof Mob && ((Mob) e.getEntity()).getTarget() != null)
+               track = ((Mob) e.getEntity()).getTarget().getName();
+       }
         // No matches, plugin explode or cannot to track?
+        if(track == null || track.isEmpty()){
+            EntityDamageEvent cause = e.getEntity().getLastDamageCause();
+            if(cause != null){
+                if(cause instanceof EntityDamageByEntityEvent){
+                    if(((EntityDamageByEntityEvent) cause).getDamager() instanceof Player) {
+                        track = ((EntityDamageByEntityEvent) cause).getDamager().getName();
+                    }else{
+                        track = "#"+((EntityDamageByEntityEvent) cause).getDamager().getName();
+                    }
+                }
+            }
+        }
 
         if(track != null && !track.isEmpty()){
-            e.blockList().forEach(block-> api.logRemoval(track,block.getLocation(),block.getType(),block.getBlockData()));
+            for (Block block : e.blockList()) {
+                api.logRemoval(track,block.getLocation(),block.getType(),block.getBlockData());
+            }
         }else if (section.getBoolean("disable-unknown")) {
             e.blockList().clear();
             e.getEntity().remove();
