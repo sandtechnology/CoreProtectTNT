@@ -501,6 +501,10 @@ public class Main extends JavaPlugin implements Listener {
 
         if(track != null && !track.isEmpty()){
             e.blockList().forEach(block-> api.logRemoval(track,block.getLocation(),block.getType(),block.getBlockData()));
+        }else if (section.getBoolean("disable-unknown")) {
+            e.blockList().clear();
+            e.getEntity().remove();
+            Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
         }
     }
 }
