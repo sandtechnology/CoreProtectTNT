@@ -36,8 +36,9 @@ public class Main extends JavaPlugin implements Listener {
     private CoreProtectAPI api;
     private final Cache<Object, String> probablyCache = CacheBuilder
             .newBuilder()
-            .expireAfterAccess(12, TimeUnit.HOURS)
+            .expireAfterAccess(1, TimeUnit.HOURS)
             .concurrencyLevel(4) // Sync and Async threads
+            .maximumSize(50000) // Drop objects if too much, because it will cost expensive lookup.
             .recordStats()
             .build();
 
@@ -444,7 +445,6 @@ public class Main extends JavaPlugin implements Listener {
                     return;
                 }
             }
-            pendingRemoval.forEach(probablyCache::invalidate);
             return;
         }
         if (entity instanceof Fireball) {
