@@ -117,6 +117,7 @@ public class Main extends JavaPlugin implements Listener {
         // Maybe a player break the tnt and a plugin igniting it?
         probablyCache.put(event.getBlock().getLocation(), event.getPlayer().getName());
     }
+
     // Player item put into ItemFrame / Rotate ItemFrame (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onClickItemFrame(PlayerInteractEntityEvent e) { // Add item to item-frame or rotating
@@ -497,25 +498,25 @@ public class Main extends JavaPlugin implements Listener {
             pendingRemoval.forEach(probablyCache::invalidate);
             return;
         }
-       if(track == null || track.isEmpty()){
-           if(e.getEntity() instanceof Mob && ((Mob) e.getEntity()).getTarget() != null)
-               track = ((Mob) e.getEntity()).getTarget().getName();
-       }
+        if (track == null || track.isEmpty()) {
+            if (e.getEntity() instanceof Mob && ((Mob) e.getEntity()).getTarget() != null)
+                track = ((Mob) e.getEntity()).getTarget().getName();
+        }
         // No matches, plugin explode or cannot to track?
-        if(track == null || track.isEmpty()){
+        if (track == null || track.isEmpty()) {
             EntityDamageEvent cause = e.getEntity().getLastDamageCause();
-            if(cause != null){
-                if(cause instanceof EntityDamageByEntityEvent){
-                    track = "#"+e.getEntity().getName()+"-"+((EntityDamageByEntityEvent) cause).getDamager().getName();
+            if (cause != null) {
+                if (cause instanceof EntityDamageByEntityEvent) {
+                    track = "#" + e.getEntity().getName() + "-" + ((EntityDamageByEntityEvent) cause).getDamager().getName();
                 }
             }
         }
 
-        if(track != null && !track.isEmpty()){
+        if (track != null && !track.isEmpty()) {
             for (Block block : e.blockList()) {
-                api.logRemoval(track,block.getLocation(),block.getType(),block.getBlockData());
+                api.logRemoval(track, block.getLocation(), block.getType(), block.getBlockData());
             }
-        }else if (section.getBoolean("disable-unknown")) {
+        } else if (section.getBoolean("disable-unknown")) {
             e.blockList().clear();
             e.getEntity().remove();
             Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
