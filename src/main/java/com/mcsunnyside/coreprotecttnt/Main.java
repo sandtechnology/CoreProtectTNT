@@ -255,16 +255,15 @@ public class Main extends JavaPlugin implements Listener {
             api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
             api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
         } else {
-            if (probablyCache.getIfPresent(e.getDamager()) != null) {
-                String reason = "#" + e.getDamager().getName() + "-" + probablyCache.getIfPresent(e.getDamager());
+            String cause = probablyCache.getIfPresent(e.getDamager());
+            if (cause != null) {
+                String reason = "#" + e.getDamager().getName() + "-" + cause;
                 probablyCache.put(e.getEntity(), reason);
-                api.logInteraction(reason, itemFrame.getLocation());
                 api.logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
             }
         }
     }
 
-    // Painting hit by entity
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPaintingHit(EntityDamageByEntityEvent e) {
         if (!(e.getEntity() instanceof Painting))
