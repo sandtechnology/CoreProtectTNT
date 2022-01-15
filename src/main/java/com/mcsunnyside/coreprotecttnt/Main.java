@@ -54,9 +54,9 @@ public class Main extends JavaPlugin implements Listener {
         api = ((CoreProtect) depend).getAPI();
     }
 
-    // Bed explosion (tracing)
+    // Bed/RespawnAnchor explosion (tracing)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onPlayerInteractBedExplosion(PlayerInteractEvent e) {
+    public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK)
             return;
         Block clickedBlock = e.getClickedBlock();
