@@ -1,10 +1,10 @@
 block-explosion:
-  # Should we log and tracing for explosion?
+  # Should we log and trace this type of explosion?
   enable: true
-  # Disable the explosion if no source can be tracking.
+  # Cancel the explosion if its source can't be tracked.
   disable-unknown: true
-  # The message will broadcast to players that around 15 blocks nearby
-  alert: "&cAn explosion near you has been blocked because that caused by unknown object."
+  # The message that will be broadcast to players.
+  alert: "&cAn explosion near you has been blocked because it was caused by an unknown object."
 entity-explosion:
   enable: true
   disable-unknown: true
