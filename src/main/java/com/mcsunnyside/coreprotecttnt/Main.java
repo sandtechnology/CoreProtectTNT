@@ -371,7 +371,7 @@ public class Main extends JavaPlugin implements Listener {
         if (!section.getBoolean("enable", true))
             return;
         String track = probablyCache.getIfPresent(entity);
-        // Entity or EnderCrystal
+        // TNT or EnderCrystal
         if (entity instanceof TNTPrimed || entity instanceof EnderCrystal) {
             if (track != null) {
                 String reason = "#" + entityName + "-" + track;
