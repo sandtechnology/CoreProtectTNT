@@ -343,30 +343,6 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
-//    Will make empty records for unknown reason :(
-//    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-//    public void onEntityPickup(InventoryPickupItemEvent e) {
-//        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "entity-pickup");
-//        if (!section.getBoolean("enable", true))
-//            return;
-//        if (!(e.getInventory().getHolder() instanceof Entity))
-//            return;
-//        // Copy from CoreProtect
-//        Item item = e.getItem();
-//        Location location = item.getLocation();
-//        ItemStack itemStack = item.getItemStack();
-//        if (itemStack != null) {
-//            String loggingItemId = "#" + ((Entity) e.getInventory().getHolder()).getName().replace(" ", "_") + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-//            int itemId = CTNTQueue.getItemId(loggingItemId);
-//            List<ItemStack> list = (List) ConfigHandler.itemsPickup.getOrDefault(loggingItemId, new ArrayList());
-//            list.add(itemStack.clone());
-//            ConfigHandler.itemsPickup.put(loggingItemId, list);
-//            int time = (int) (System.currentTimeMillis() / 1000L) + 1;
-//            CTNTQueue.queueItemTransaction("#" + ((Entity) e.getInventory().getHolder()).getName().replace(" ", "_"), location.clone(), time, itemId);
-//        }
-//    }
-
-
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBombHit(ProjectileHitEvent e) {
         if (e.getHitEntity() == null)
