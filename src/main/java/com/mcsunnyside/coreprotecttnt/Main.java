@@ -345,8 +345,6 @@ public class Main extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBombHit(ProjectileHitEvent e) {
-        if (e.getHitEntity() == null)
-            return;
         if (e.getHitEntity() instanceof ExplosiveMinecart || e.getEntityType() == EntityType.ENDER_CRYSTAL) {
             if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
                 if (probablyCache.getIfPresent(e.getEntity()) != null) {
@@ -368,9 +366,7 @@ public class Main extends JavaPlugin implements Listener {
         if (blockList.isEmpty())
             return;
         List<Entity> pendingRemoval = new ArrayList<>();
-
         String entityName = e.getEntityType().name().toLowerCase(Locale.ROOT);
-
         ConfigurationSection section = Util.bakeConfigSection(getConfig(), "entity-explosion");
         if (!section.getBoolean("enable", true))
             return;
@@ -466,7 +462,6 @@ public class Main extends JavaPlugin implements Listener {
                     pendingRemoval.add(entity);
                 } else if (section.getBoolean("disable-unknown")) {
                     e.blockList().clear();
-                    e.getEntity().remove();
                     Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
                 }
             }
