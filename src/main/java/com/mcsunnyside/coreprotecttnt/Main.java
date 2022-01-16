@@ -293,6 +293,22 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onEntityHitByProjectile(EntityDamageByEntityEvent e) {
+       if (e.getDamager() instanceof Projectile) {
+           Projectile projectile = (Projectile)e.getDamager();
+           if(projectile.getShooter() instanceof Player){
+               probablyCache.put(e.getEntity(),((Player) projectile.getShooter()).getName());
+               return;
+           }
+            String reason = probablyCache.getIfPresent(e.getDamager());
+            if (reason != null) {
+               probablyCache.put(e.getEntity(),reason);
+            }
+        }
+    }
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockIgnite(BlockIgniteEvent e) {
         if (e.getIgnitingEntity() != null) {
