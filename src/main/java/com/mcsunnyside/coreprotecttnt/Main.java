@@ -305,7 +305,9 @@ public class Main extends JavaPlugin implements Listener {
             String reason = probablyCache.getIfPresent(e.getDamager());
             if (reason != null) {
                probablyCache.put(e.getEntity(),reason);
+               return;
             }
+            probablyCache.put(e.getEntity(),e.getDamager().getName());
         }
     }
 
