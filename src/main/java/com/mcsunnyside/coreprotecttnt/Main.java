@@ -221,7 +221,7 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     // EndCrystal rigged by entity (listener)
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onEndCrystalHit(EntityDamageByEntityEvent e) {
         if (!(e.getEntity() instanceof EnderCrystal))
             return;
@@ -294,7 +294,7 @@ public class Main extends JavaPlugin implements Listener {
     }
 
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onEntityHitByProjectile(EntityDamageByEntityEvent e) {
        if (e.getDamager() instanceof Projectile) {
            Projectile projectile = (Projectile)e.getDamager();
@@ -361,7 +361,7 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onBombHit(ProjectileHitEvent e) {
         if (e.getHitEntity() instanceof ExplosiveMinecart || e.getEntityType() == EntityType.ENDER_CRYSTAL) {
             if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
