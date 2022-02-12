@@ -1,38 +1,23 @@
-tnt:
-  log: true
-  disable-when-target-not-found: true
-creeper:
-  log: true
-  disable-when-target-not-found: true
-endercrystal:
-  log: true
-  disable-when-target-not-found: true
-fireball:
-  log: true
-  disable-when-target-not-found: true
-tntminecart:
-  log: true
-  disable-when-target-not-found: true
-bed:
-  log: true
-  disable-when-target-not-found: true
-respawn-anchor:
-  log: true
-  disable-when-target-not-found: true
-other-explosive-blocks:
-  disable-when-target-not-found: true
+block-explosion:
+  # Should we log and trace this type of explosion?
+  enable: true
+  # Cancel the explosion if its source can't be tracked.
+  disable-unknown: true
+  # The message that will be broadcast to players.
+  alert: "&cAn explosion near you has been blocked because it was caused by an unknown object."
+entity-explosion:
+  enable: true
+  disable-unknown: true
+  alert: "&cAn explosion near you has been blocked because that caused by unknown object."
 fire:
-  log: true
-  disable-burn-when-target-not-found: false
-  disable-spread-when-target-not-found: false
-msgs:
-  tnt-wont-break-blocks: "&cThis TNT explosion won't break any blocks because it was not triggered by a player."
-  creeper-wont-break-blocks: "&cThis Creeper explosion won't break any blocks because it was not triggered by a player."
-  endercrystal-wont-break-blocks: "&cThis End Crystal explosion won't break any blocks because it was not triggered by a player."
-  fireball-wont-break-blocks: "&cThis Fireball explosion won't break any blocks because it was not triggered by a player."
-  tntminecart-wont-break-blocks: "&cThis TNT Minecart explosion won't break any blocks because it was not triggered by a player."
-  bed-wont-break-blocks: "&cThis Bed explosion won't break any blocks because it was not triggered by a player."
-  respawn-anchor-wont-break-blocks: "&cThis Respawn Anchor explosion won't break any blocks because it was not triggered by a player."
-  other-explosive-block-wont-break-blocks: "&cThis explosive block explosion won't break any blocks because it was not triggered by a player."
-  fire-wont-burn-blocks: "&cFire won't burn any blocks because it was not ignited by a player."
-  fire-wont-spread: "&cFire won't spread because it was not ignited by a player."
+  enable: true
+  disable-unknown: true
+  alert: "&cAn fire spreading/burning has been blocked because that caused by unknown object."
+itemframe:
+  enable: true
+  disable-unknown: true
+  alert: "&cBlocked item-frame destroy because that caused by unknown object."
+hanging:
+  enable: true
+  disable-unknown: true
+  alert: "&cBlocked hanging destroy because that caused by unknown object."

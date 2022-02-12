@@ -1,37 +1,46 @@
 package com.mcsunnyside.coreprotecttnt;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBurnEvent;
-import org.bukkit.event.block.BlockExplodeEvent;
-import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.*;
 import org.bukkit.event.entity.*;
+import org.bukkit.event.hanging.HangingBreakEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
-import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class Main extends JavaPlugin implements Listener {
-    private final HashMap<Entity, String> explosionSources = new HashMap<>();
-    private final HashMap<Location, String> ignitedBlocks = new HashMap<>();
-    private final HashMap<Location, String> beds = new HashMap<>();
-    private final HashMap<Location, String> respawnAnchors = new HashMap<>();
-    private final ArrayList<Block> probablyIgnitedThisTick = new ArrayList<>();
     private CoreProtectAPI api;
+    private final Cache<Object, String> probablyCache = CacheBuilder
+            .newBuilder()
+            .expireAfterAccess(1, TimeUnit.HOURS)
+            .concurrencyLevel(4) // Sync and Async threads
+            .maximumSize(50000) // Drop objects if too much, because it will cost expensive lookup.
+            .recordStats()
+            .build();
 
     @Override
     public void onEnable() {
@@ -43,222 +52,262 @@ public class Main extends JavaPlugin implements Listener {
             return;
         }
         api = ((CoreProtect) depend).getAPI();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                List<Location> blocks = ignitedBlocks.keySet()
-                        .stream()
-                        .filter(block -> block.getBlock().getType() != Material.FIRE)
-                        .collect(Collectors.toList());
-                if (!blocks.isEmpty()) {
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            blocks
-                                    .stream()
-                                    .filter(block -> block.getBlock().getType() != Material.FIRE)
-                                    .forEach(ignitedBlocks::remove);
-                        }
-                    }.runTaskLater(Main.this, 42);
-                }
-                if (ignitedBlocks.size() > 10000) {
-                    List<Location> toRemove = new ArrayList<>();
-                    ignitedBlocks.keySet().stream().filter(block -> block.getBlock().getType() != Material.FIRE).forEach(toRemove::add);
-                    toRemove.forEach(ignitedBlocks::remove);
-
-                    if (ignitedBlocks.size() > 9000) {
-                        ignitedBlocks.clear();
-                    }
-                }
-                if (explosionSources.size() > 1000) {
-                    ArrayList<Entity> toRemove = new ArrayList<>();
-                    explosionSources.keySet().forEach(entity -> {
-                        if (!entity.isValid() || entity.isDead()) {
-                            toRemove.add(entity);
-                        }
-                    });
-                    // These entities may still trigger some events or act as a tnt source, so make a 30-second delay
-                    getServer().getScheduler().scheduleSyncDelayedTask(Main.this, () -> toRemove.forEach(explosionSources::remove), 20 * 30);
-                }
-            }
-        }.runTaskTimer(this, 0, 20 * 60);
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    if (getConfig().getBoolean("fire.log")) {
-                        for (Block block : probablyIgnitedThisTick) {
-                            if (block.getType() == Material.FIRE) {
-                                api.logPlacement("[Fire]" + ignitedBlocks.get(block.getLocation()), block.getLocation(), Material.FIRE, block.getBlockData());
-                            }
-                        }
-                    }
-                    probablyIgnitedThisTick.clear();
-                }
-            }.runTaskTimer(this, 1, 1);
     }
 
-    @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent e) {
-        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) {
+    // Bed/RespawnAnchor explosion (tracing)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK)
             return;
-        }
-
         Block clickedBlock = e.getClickedBlock();
         Location locationHead = clickedBlock.getLocation();
-
-        if (clickedBlock.getLocation().getWorld().getEnvironment() != World.Environment.NORMAL
-                && clickedBlock.getBlockData() instanceof Bed
-                && getConfig().getBoolean("bed.log")) {
-            Bed data = (Bed) clickedBlock.getBlockData();
-            Location locationFoot = locationHead.clone().subtract(data.getFacing().getDirection());
-            if (data.getPart() == Bed.Part.FOOT) {
-                locationHead.add(data.getFacing().getDirection());
+        if (clickedBlock.getBlockData() instanceof Bed) {
+            Bed bed = (Bed) clickedBlock.getBlockData();
+            Location locationFoot = locationHead.clone().subtract(bed.getFacing().getDirection());
+            if (bed.getPart() == Bed.Part.FOOT) {
+                locationHead.add(bed.getFacing().getDirection());
             }
-
-            beds.put(locationHead, e.getPlayer().getName());
-            probablyIgnitedThisTick.add(locationHead.getBlock());
-            probablyIgnitedThisTick.add(locationFoot.getBlock());
-            api.logRemoval("#[Bed]" + e.getPlayer().getName(), locationHead, clickedBlock.getType(), data); // head
-            api.logRemoval("#[Bed]" + e.getPlayer().getName(), locationFoot, clickedBlock.getType(), clickedBlock.getBlockData()); // foot
-        } else if (clickedBlock.getType().name().equals("RESPAWN_ANCHOR") // support old versions
-                && clickedBlock.getLocation().getWorld().getEnvironment() != World.Environment.NETHER
-                && getConfig().getBoolean("respawn-anchor.log")) {
-            RespawnAnchor data = (RespawnAnchor) clickedBlock.getBlockData();
-            if (data.getCharges() == data.getMaximumCharges()) {
-                respawnAnchors.put(clickedBlock.getLocation(), e.getPlayer().getName());
-                probablyIgnitedThisTick.add(clickedBlock);
-                api.logRemoval("#[RespawnAnchor]" + e.getPlayer().getName(), locationHead, clickedBlock.getType(), data);
-            }
+            String reason = "#bed-" + e.getPlayer().getName();
+            probablyCache.put(locationHead, reason);
+            probablyCache.put(locationFoot, reason);
         }
-
+        if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
+            probablyCache.put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
+        }
     }
 
+    // Creeper ignite (tracing)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
+        if (!(e.getRightClicked() instanceof Creeper))
+            return;
+        probablyCache.put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
+    }
+
+    // Block explode (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockExplode(BlockExplodeEvent e) {
-        if (beds.containsKey(e.getBlock().getLocation())) {
-            if (getConfig().getBoolean("bed.log")) {
-                String source = beds.get(e.getBlock().getLocation());
-                beds.remove(e.getBlock().getLocation());
-
-                for (Block block : e.blockList()) {
-                    api.logRemoval("#[Bed]" + source, block.getLocation(), block.getType(), block.getBlockData());
-                    ignitedBlocks.put(block.getLocation(), source);
-                }
-                probablyIgnitedThisTick.addAll(e.blockList());
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "block-explosion");
+        if (!section.getBoolean("enable", true))
+            return;
+        Location location = e.getBlock().getLocation();
+        String probablyCauses = probablyCache.getIfPresent(e.getBlock());
+        if (probablyCauses == null)
+            probablyCauses = probablyCache.getIfPresent(location);
+        if (probablyCauses == null) {
+            if (section.getBoolean("disable-unknown", true)) {
+                e.blockList().clear();
+                Util.broadcastNearPlayers(location, section.getString("alert"));
             }
-        } else if (respawnAnchors.containsKey(e.getBlock().getLocation())) {
-            if (getConfig().getBoolean("respawn-anchor.log")) {
-                String source = respawnAnchors.get(e.getBlock().getLocation());
-                respawnAnchors.remove(e.getBlock().getLocation());
+        }
+        // Found causes, let's begin for logging
+        for (Block block : e.blockList()) {
+            api.logRemoval(probablyCauses, block.getLocation(), block.getType(), block.getBlockData());
+        }
+    }
 
-                for (Block block : e.blockList()) {
-                    api.logRemoval("#[RespawnAnchor]" + source, block.getLocation(), block.getType(), block.getBlockData());
-                    ignitedBlocks.put(block.getLocation(), source);
-                }
-                probablyIgnitedThisTick.addAll(e.blockList());
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockPlaceOnHanging(BlockPlaceEvent event) {
+        // We can't check the hanging in this event, may cause server lagging, just store it
+        probablyCache.put(event.getBlock().getLocation(), event.getPlayer().getName());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockBreak(BlockPlaceEvent event) {
+        // We can't check the hanging in this event, may cause server lagging, just store it
+        // Maybe a player break the tnt and a plugin igniting it?
+        probablyCache.put(event.getBlock().getLocation(), event.getPlayer().getName());
+    }
+
+    // Player item put into ItemFrame / Rotate ItemFrame (logger)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onClickItemFrame(PlayerInteractEntityEvent e) { // Add item to item-frame or rotating
+        if (!(e.getRightClicked() instanceof ItemFrame))
+            return;
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "itemframe");
+        if (!section.getBoolean("enable", true))
+            return;
+        ItemFrame itemFrame = (ItemFrame) e.getRightClicked();
+        // Player interacted itemframe
+        api.logInteraction(e.getPlayer().getName(), e.getRightClicked().getLocation());
+        // Check item I/O
+        if (itemFrame.getItem().getType().isAir()) { // Probably put item now
+            ItemStack mainItem = e.getPlayer().getInventory().getItemInMainHand();
+            ItemStack offItem = e.getPlayer().getInventory().getItemInOffHand();
+            ItemStack putIn = mainItem.getType().isAir() ? offItem : mainItem;
+            if (!putIn.getType().isAir()) {
+                // Put in item
+                api.logPlacement("#additem-" + e.getPlayer().getName(), e.getRightClicked().getLocation(), putIn.getType(), null);
+                return;
             }
-        } else {
-            // No idea why this could happen, but why not to handle this 0.01%
-            if (e.getBlock().getBlockData() instanceof Bed) {
-                if (getConfig().getBoolean("bed.disable-when-target-not-found")) {
-                    e.setCancelled(true);
-                    Collection<Entity> entityCollections = e.getBlock().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
-                    for (Entity entity : entityCollections) {
-                        if (entity instanceof Player)
-                            entity.sendMessage(
-                                    ChatColor.translateAlternateColorCodes('&',
-                                            getConfig().getString("msgs.bed-wont-break-blocks")
-                                    )
-                            );
-                    }
-                }
-            } else if (e.getBlock().getType() == Material.RESPAWN_ANCHOR) {
-                if (getConfig().getBoolean("respawn-anchor.disable-when-target-not-found")) {
-                    e.setCancelled(true);
-                    Collection<Entity> entityCollections = e.getBlock().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
-                    for (Entity entity : entityCollections) {
-                        if (entity instanceof Player)
-                            entity.sendMessage(
-                                    ChatColor.translateAlternateColorCodes('&',
-                                            getConfig().getString("msgs.respawn-anchor-wont-break-blocks")
-                                    )
-                            );
-                    }
-                }
+        }
+        // Probably rotating ItemFrame
+        api.logRemoval("#rotate-" + e.getPlayer().getName(), e.getRightClicked().getLocation(), itemFrame.getItem().getType(), null);
+        api.logPlacement("#rotate-" + e.getPlayer().getName(), e.getRightClicked().getLocation(), itemFrame.getItem().getType(), null);
+    }
+
+    // Any projectile shoot (listener)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onProjectileLaunch(ProjectileLaunchEvent e) {
+        if (e.getEntity().getShooter() == null)
+            return;
+        ProjectileSource projectileSource = e.getEntity().getShooter();
+        String source = "";
+        if (!(projectileSource instanceof Player))
+            source += "#"; // We only hope non-player object use hashtag
+        source += e.getEntity().getName() + "-";
+        if (projectileSource instanceof Entity) {
+            if (projectileSource instanceof Mob && ((Mob) projectileSource).getTarget() != null) {
+                source += ((Mob) projectileSource).getTarget().getName();
             } else {
-                if (getConfig().getBoolean("other-explosive-blocks.disable-when-target-not-found")) {
-                    e.setCancelled(true);
-                    Collection<Entity> entityCollections = e.getBlock().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
-                    for (Entity entity : entityCollections) {
-                        if (entity instanceof Player)
-                            entity.sendMessage(
-                                    ChatColor.translateAlternateColorCodes('&',
-                                            getConfig().getString("msgs.other-explosive-block-wont-break-blocks")
-                                    )
-                            );
-                    }
-                }
+                source += ((Entity) projectileSource).getName();
+            }
+            probablyCache.put(projectileSource, source);
+        } else {
+            if (projectileSource instanceof Block) {
+                source += ((Block) projectileSource).getType().name();
+                probablyCache.put(((Block) projectileSource).getLocation(), source);
+            } else {
+                source += projectileSource.getClass().getName();
+                probablyCache.put(projectileSource, source);
             }
         }
     }
 
+    // TNT ignites by Player (listener)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onFireballLaunch(ProjectileLaunchEvent e) {
-        if (e.getEntity().getShooter() != null) {
-            if (e.getEntityType() == EntityType.FIREBALL) {
-                String source = ((Entity) e.getEntity().getShooter()).getType().name();
-                if (e.getEntity().getShooter() instanceof Ghast && ((Ghast) e.getEntity().getShooter()).getTarget() != null) {
-                    Entity target = ((Ghast) e.getEntity().getShooter()).getTarget();
-                    String targetName = target.getType() == EntityType.PLAYER ? target.getName() : target.getType().name();
-                    source += "->" + targetName;
-                }
-                explosionSources.put(e.getEntity(), source);
-            }
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onIgnite(EntitySpawnEvent e) {
+    public void onIgniteTNT(EntitySpawnEvent e) {
         Entity tnt = e.getEntity();
-        if (e.getEntity() instanceof TNTPrimed) {
-            TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
-            Entity source = tntPrimed.getSource();
-            if (source != null) {
-                //Bukkit has given the ignition source, track it directly.
-                if (explosionSources.containsKey(source)) {
-                    explosionSources.put(tnt, explosionSources.get(source));
-                    return;
-                }
-                if (source.getType() == EntityType.PLAYER) {
-                    explosionSources.put(tntPrimed, source.getName());
-                    return;
-                }
+        if (!(e.getEntity() instanceof TNTPrimed))
+            return;
+        TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
+        Entity source = tntPrimed.getSource();
+        if (source != null) {
+            //Bukkit has given the ignition source, track it directly.
+            if (probablyCache.getIfPresent(source) != null) {
+                probablyCache.put(tnt, probablyCache.getIfPresent(source));
             }
-            Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
-            for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
-                if (entry.getKey().getWorld().equals(blockCorner.getWorld()) && entry.getKey().distance(blockCorner) < 0.5) {
-                    explosionSources.put(tnt, entry.getValue());
+            if (source.getType() == EntityType.PLAYER) {
+                probablyCache.put(tntPrimed, source.getName());
+                return;
+            }
+        }
+        Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
+        for (Map.Entry<Object, String> entry : probablyCache.asMap().entrySet()) {
+            if (entry.getKey() instanceof Location) {
+                Location loc = (Location) entry.getKey();
+                if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 0.5) {
+                    probablyCache.put(tnt, entry.getValue());
                     break;
                 }
             }
         }
     }
 
+    // HangingBreak (logger)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onHangingBreak(HangingBreakEvent e) {
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "hanging");
+        if (!section.getBoolean("enable", true))
+            return;
+        if (e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS || e.getCause() == HangingBreakEvent.RemoveCause.DEFAULT)
+            return; // We can't track them tho.
+
+        Block hangingPosBlock = e.getEntity().getLocation().getBlock();
+        String reason = probablyCache.getIfPresent(hangingPosBlock.getLocation());
+        if (reason != null) {
+            api.logRemoval("#" + e.getCause().name() + "-" + reason, hangingPosBlock.getLocation(), Material.matchMaterial(e.getEntity().getType().name()), null);
+        }
+    }
+
+    // EndCrystal rigged by entity (listener)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onEndCrystalHit(EntityDamageByEntityEvent e) {
-        if (e.getEntityType() == EntityType.ENDER_CRYSTAL) {
-            if (e.getDamager().getType() == EntityType.PLAYER) {
-                explosionSources.put(e.getEntity(), e.getDamager().getName());
-            } else {
-                if (explosionSources.containsKey(e.getDamager())) {
-                    explosionSources.put(e.getEntity(), explosionSources.get(e.getDamager()));
-                } else if (e.getDamager() instanceof Projectile) {
-                    Projectile projectile = (Projectile) e.getDamager();
-                    if (projectile.getShooter() != null && projectile.getShooter() instanceof Player) {
-                        explosionSources.put(e.getEntity(), ((Player) projectile.getShooter()).getName());
-                    }
+        if (!(e.getEntity() instanceof EnderCrystal))
+            return;
+        if (e.getDamager() instanceof Player) {
+            probablyCache.put(e.getEntity(), e.getDamager().getName());
+        } else {
+            if (probablyCache.getIfPresent(e.getDamager()) != null) {
+                probablyCache.put(e.getEntity(), probablyCache.getIfPresent(e.getDamager()));
+            } else if (e.getDamager() instanceof Projectile) {
+                Projectile projectile = (Projectile) e.getDamager();
+                if (projectile.getShooter() != null && projectile.getShooter() instanceof Player) {
+                    probablyCache.put(e.getEntity(), ((Player) projectile.getShooter()).getName());
                 }
             }
+        }
+    }
+
+    // Haning hit by entity (logger)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onHangingHit(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Hanging))
+            return;
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "itemframe");
+        if (!section.getBoolean("enable", true))
+            return;
+        ItemFrame itemFrame = (ItemFrame) e.getEntity();
+        if (itemFrame.getItem().getType().isAir() || itemFrame.isInvulnerable())
+            return;
+        if (e.getDamager() instanceof Player) {
+            probablyCache.put(e.getEntity(), e.getDamager().getName());
+            api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
+            api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+        } else {
+            String cause = probablyCache.getIfPresent(e.getDamager());
+            if (cause != null) {
+                String reason = "#" + e.getDamager().getName() + "-" + cause;
+                probablyCache.put(e.getEntity(), reason);
+                api.logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPaintingHit(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Painting))
+            return;
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "painting");
+        if (!section.getBoolean("enable", true))
+            return;
+        ItemFrame itemFrame = (ItemFrame) e.getEntity();
+        if (itemFrame.getItem().getType().isAir() || itemFrame.isInvulnerable())
+            return;
+
+        if (e.getDamager() instanceof Player) {
+            api.logInteraction(e.getDamager().getName(), itemFrame.getLocation());
+            api.logRemoval(e.getDamager().getName(), itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+        } else {
+            String reason = probablyCache.getIfPresent(e.getDamager());
+            if (reason != null) {
+                api.logInteraction("#" + e.getDamager().getName() + "-" + reason, itemFrame.getLocation());
+                api.logRemoval("#" + e.getDamager().getName() + "-" + reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
+            } else {
+                if (section.getBoolean("disable-unknown")) {
+                    e.setCancelled(true);
+                    e.setDamage(0.0d);
+                    Util.broadcastNearPlayers(e.getEntity().getLocation(), section.getString("alert"));
+                }
+            }
+        }
+    }
+
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+    public void onEntityHitByProjectile(EntityDamageByEntityEvent e) {
+       if (e.getDamager() instanceof Projectile) {
+           Projectile projectile = (Projectile)e.getDamager();
+           if(projectile.getShooter() instanceof Player){
+               probablyCache.put(e.getEntity(),((Player) projectile.getShooter()).getName());
+               return;
+           }
+            String reason = probablyCache.getIfPresent(e.getDamager());
+            if (reason != null) {
+               probablyCache.put(e.getEntity(),reason);
+               return;
+            }
+            probablyCache.put(e.getEntity(),e.getDamager().getName());
         }
     }
 
@@ -266,213 +315,199 @@ public class Main extends JavaPlugin implements Listener {
     public void onBlockIgnite(BlockIgniteEvent e) {
         if (e.getIgnitingEntity() != null) {
             if (e.getIgnitingEntity().getType() == EntityType.PLAYER) {
-                ignitedBlocks.put(e.getBlock().getLocation(), e.getPlayer().getName());
+                probablyCache.put(e.getBlock().getLocation(), e.getPlayer().getName());
                 // Don't add it to probablyIgnitedThisTick because it's the simplest case and is logged by Core Protect
                 return;
             }
-            if (explosionSources.containsKey(e.getIgnitingEntity())) {
-                ignitedBlocks.put(e.getBlock().getLocation(), explosionSources.get(e.getIgnitingEntity()));
-                probablyIgnitedThisTick.add(e.getBlock());
+            if (probablyCache.getIfPresent(e.getIgnitingEntity()) != null) {
+                probablyCache.put(e.getBlock().getLocation(), probablyCache.getIfPresent(e.getIgnitingEntity()));
                 return;
             } else if (e.getIgnitingEntity() instanceof Projectile) {
                 if (((Projectile) e.getIgnitingEntity()).getShooter() != null) {
                     ProjectileSource shooter = ((Projectile) e.getIgnitingEntity()).getShooter();
                     if (shooter instanceof Player) {
-                        ignitedBlocks.put(e.getBlock().getLocation(), ((Player) shooter).getName());
-                        probablyIgnitedThisTick.add(e.getBlock());
+                        probablyCache.put(e.getBlock().getLocation(), ((Player) shooter).getName());
                         return;
                     }
                 }
             }
         }
         if (e.getIgnitingBlock() != null) {
-            if (ignitedBlocks.containsKey(e.getIgnitingBlock().getLocation())) {
-                ignitedBlocks.put(e.getBlock().getLocation(), ignitedBlocks.get(e.getIgnitingBlock().getLocation()));
-                probablyIgnitedThisTick.add(e.getBlock());
+            if (probablyCache.getIfPresent(e.getIgnitingBlock().getLocation()) != null) {
+                probablyCache.put(e.getBlock().getLocation(), probablyCache.getIfPresent(e.getIgnitingBlock().getLocation()));
                 return;
             }
         }
-        
-        if(getConfig().getBoolean("fire.disable-spread-when-target-not-found")) {
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "fire");
+        if (!section.getBoolean("enable", true))
+            return;
+        if (!section.getBoolean("disable-unknown", true))
             e.setCancelled(true);
-            Collection<Entity> entityCollections = e.getBlock().getLocation().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
-            for (Entity entity : entityCollections) {
-                if (entity instanceof Player)
-                    entity.sendMessage(
-                            ChatColor.translateAlternateColorCodes('&',
-                                    getConfig().getString("msgs.fire-wont-spread")
-                            )
-                    );
-            }
-        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBurn(BlockBurnEvent e) {
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "fire");
+        if (!section.getBoolean("enable", true))
+            return;
         if (e.getIgnitingBlock() != null) {
-            if (ignitedBlocks.containsKey(e.getIgnitingBlock().getLocation())) {
-                ignitedBlocks.put(e.getBlock().getLocation(), ignitedBlocks.get(e.getIgnitingBlock().getLocation()));
-                api.logRemoval("[Fire]" + ignitedBlocks.get(e.getIgnitingBlock().getLocation()), e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
-            } else if(getConfig().getBoolean("fire.disable-burn-when-target-not-found")) {
+            if (probablyCache.getIfPresent(e.getIgnitingBlock().getLocation()) != null) {
+                probablyCache.put(e.getBlock().getLocation(), probablyCache.getIfPresent(e.getIgnitingBlock().getLocation()));
+                api.logRemoval("#fire-" + probablyCache.getIfPresent(e.getIgnitingBlock().getLocation()), e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
+            } else if (section.getBoolean("disable-unknown", true)) {
                 e.setCancelled(true);
-                Collection<Entity> entityCollections = e.getBlock().getLocation().getWorld().getNearbyEntities(e.getBlock().getLocation(), 15, 15, 15);
-                for (Entity entity : entityCollections) {
-                    if (entity instanceof Player)
-                        entity.sendMessage(
-                                ChatColor.translateAlternateColorCodes('&',
-                                        getConfig().getString("msgs.fire-wont-burn-blocks")
-                                )
-                        );
-                }
+                Util.broadcastNearPlayers(e.getIgnitingBlock().getLocation(), section.getString("alert"));
             }
         }
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onExplodableHit(ProjectileHitEvent e) {
-        if (e.getHitEntity() != null) {
-            if (e.getHitEntity() instanceof ExplosiveMinecart || e.getEntityType() == EntityType.ENDER_CRYSTAL) {
-                if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
-                    if (explosionSources.containsKey(e.getEntity())) {
-                        explosionSources.put(e.getHitEntity(), explosionSources.get(e.getEntity()));
-                    } else {
-                        if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
-                            explosionSources.put(e.getHitEntity(), ((Player) e.getEntity().getShooter()).getName());
-                        }
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+    public void onBombHit(ProjectileHitEvent e) {
+        if (e.getHitEntity() instanceof ExplosiveMinecart || e.getEntityType() == EntityType.ENDER_CRYSTAL) {
+            if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
+                if (probablyCache.getIfPresent(e.getEntity()) != null) {
+                    probablyCache.put(e.getHitEntity(), probablyCache.getIfPresent(e.getEntity()));
+                } else {
+                    if (e.getEntity().getShooter() != null && e.getEntity().getShooter() instanceof Player) {
+                        probablyCache.put(e.getHitEntity(), ((Player) e.getEntity().getShooter()).getName());
                     }
                 }
             }
         }
     }
 
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onExplode(EntityExplodeEvent e) {
-        Entity tnt = e.getEntity();
+        Entity entity = e.getEntity();
         List<Block> blockList = e.blockList();
         if (blockList.isEmpty())
             return;
         List<Entity> pendingRemoval = new ArrayList<>();
-        String configTntName = e.getEntityType() == EntityType.ENDER_CRYSTAL ? "endercrystal" : "tnt";
-        if (tnt instanceof TNTPrimed || tnt instanceof EnderCrystal) {
-            if (!getConfig().getBoolean(configTntName + ".log"))
-                return;
-            String tntName = tnt.getType() == EntityType.PRIMED_TNT ? "TNT" : "EndCrystal";
-
-            if (explosionSources.containsKey(tnt)) {
+        String entityName = e.getEntityType().name().toLowerCase(Locale.ROOT);
+        ConfigurationSection section = Util.bakeConfigSection(getConfig(), "entity-explosion");
+        if (!section.getBoolean("enable", true))
+            return;
+        String track = probablyCache.getIfPresent(entity);
+        // TNT or EnderCrystal
+        if (entity instanceof TNTPrimed || entity instanceof EnderCrystal) {
+            if (track != null) {
+                String reason = "#" + entityName + "-" + track;
                 for (Block block : blockList) {
-                    api.logRemoval("#[" + tntName + "]" + explosionSources.get(tnt), block.getLocation(), block.getType(), block.getBlockData());
-                    ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
+                    api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+                    probablyCache.put(block.getLocation(), reason);
                 }
-                probablyIgnitedThisTick.addAll(blockList);
-                pendingRemoval.add(tnt);
+                pendingRemoval.add(entity);
             } else {
                 //Notify players this tnt or end crystal won't break any blocks
-                if (!getConfig().getBoolean(configTntName + ".disable-when-target-not-found"))
+                if (!section.getBoolean("disable-unknown", true))
                     return;
-                e.setCancelled(true);
-                Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
-                for (Entity entity : entityCollections) {
-                    if (entity instanceof Player)
-                        entity.sendMessage(
-                                ChatColor.translateAlternateColorCodes('&',
-                                        getConfig().getString("msgs." + configTntName + "-wont-break-blocks")
-                                )
-                        );
-                }
+                e.blockList().clear();
+                e.getEntity().remove();
+                Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
             }
+            pendingRemoval.forEach(probablyCache::invalidate);
+            return;
         }
-        if (tnt instanceof Creeper) {
-            if (!getConfig().getBoolean("creeper.log"))
-                return;
-            Creeper creeper = (Creeper) tnt;
-            LivingEntity creeperTarget = creeper.getTarget();
-            if (creeperTarget != null) {
+        // Creeper... aww man
+        if (entity instanceof Creeper) {
+            // New added: Player ignite creeper
+            if (track != null) {
                 for (Block block : blockList) {
-                    api.logRemoval("#[Creeper]" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
+                    api.logRemoval(track, block.getLocation(), block.getType(), block.getBlockData());
                 }
-                probablyIgnitedThisTick.addAll(blockList);
             } else {
-                //Notify players this creeper won't break any blocks
-                if (!getConfig().getBoolean("creeper.disable-when-target-not-found"))
-                    return;
-                e.setCancelled(true);
-                Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
-                for (Entity entity : entityCollections) {
-                    if (entity instanceof Player)
-                        entity.sendMessage(
-                                ChatColor.translateAlternateColorCodes('&',
-                                        getConfig().getString("msgs.creeper-wont-break-blocks")
-                                )
-                        );
-                }
-            }
-        }
-        if (tnt instanceof Fireball) {
-            if (!getConfig().getBoolean("fireball.log"))
-                return;
-            if (explosionSources.containsKey(tnt)) {
-                for (Block block : blockList) {
-                    api.logRemoval("#[Fireball]" + explosionSources.get(tnt), block.getLocation(), block.getType(), block.getBlockData());
-                    ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
-                }
-                pendingRemoval.add(tnt);
-                probablyIgnitedThisTick.addAll(blockList);
-            } else {
-                if (getConfig().getBoolean("fireball.disable-when-target-not-found")) {
-                    e.setCancelled(true);
-                    Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
-                    for (Entity entity : entityCollections) {
-                        if (entity instanceof Player)
-                            entity.sendMessage(
-                                    ChatColor.translateAlternateColorCodes('&',
-                                            getConfig().getString("msgs.fireball-wont-break-blocks")
-                                    )
-                            );
+                Creeper creeper = (Creeper) entity;
+                LivingEntity creeperTarget = creeper.getTarget();
+                if (creeperTarget != null) {
+                    for (Block block : blockList) {
+                        api.logRemoval("#creeper-" + creeperTarget.getName(), block.getLocation(), block.getType(), block.getBlockData());
+                        probablyCache.put(block.getLocation(), "#creeper-" + creeperTarget.getName());
                     }
                 } else {
-                    for (Block block : blockList) {
-                        api.logRemoval("#[Fireball]" + "MissingNo", block.getLocation(), block.getType(), block.getBlockData());
-                    }
-                    probablyIgnitedThisTick.addAll(blockList);
+                    //Notify players this creeper won't break any blocks
+                    if (!section.getBoolean("disable-unknown"))
+                        return;
+                    e.blockList().clear();
+                    e.getEntity().remove();
+                    Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
+                    return;
                 }
             }
+            return;
         }
-        if (tnt instanceof ExplosiveMinecart) {
+        if (entity instanceof Fireball) {
+            if (track != null) {
+                String reason = "#fireball-" + track;
+                for (Block block : blockList) {
+                    api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+                    probablyCache.put(block.getLocation(), reason);
+                }
+                pendingRemoval.add(entity);
+            } else {
+                if (section.getBoolean("disable-unknown")) {
+                    e.blockList().clear();
+                    e.getEntity().remove();
+                    Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
+                }
+            }
+            pendingRemoval.forEach(probablyCache::invalidate);
+            return;
+        }
+        if (entity instanceof ExplosiveMinecart) {
             boolean isLogged = false;
-            Location blockCorner = tnt.getLocation().clone().subtract(0.5, 0, 0.5);
-            for (Map.Entry<Location, String> entry : ignitedBlocks.entrySet()) {
-                if (entry.getKey().getWorld().equals(blockCorner.getWorld()) && entry.getKey().distance(blockCorner) < 1) {
-                    for (Block block : blockList) {
-                        api.logRemoval("#[MinecartTNT]" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
-                        ignitedBlocks.put(block.getLocation(), entry.getValue());
+            Location blockCorner = entity.getLocation().clone().subtract(0.5, 0, 0.5);
+            for (Map.Entry<Object, String> entry : probablyCache.asMap().entrySet()) {
+                if (entry.getKey() instanceof Location) {
+                    Location loc = (Location) entry.getKey();
+                    if (loc.getWorld().equals(blockCorner.getWorld()) && loc.distance(blockCorner) < 1) {
+                        for (Block block : blockList) {
+                            api.logRemoval("#tntminecart-" + entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
+                            probablyCache.put(block.getLocation(), "#tntminecart-" + entry.getValue());
+                        }
+                        isLogged = true;
+                        break;
                     }
-                    probablyIgnitedThisTick.addAll(blockList);
-                    isLogged = true;
-                    break;
                 }
             }
             if (!isLogged) {
-                if (explosionSources.containsKey(tnt)) {
+                if (probablyCache.getIfPresent(entity) != null) {
+                    String reason = "#tntminecart-" + probablyCache.getIfPresent(entity);
                     for (Block block : blockList) {
-                        api.logRemoval("#[MinecartTNT]" + explosionSources.get(tnt), block.getLocation(), block.getType(), block.getBlockData());
-                        ignitedBlocks.put(block.getLocation(), explosionSources.get(tnt));
+                        api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+                        probablyCache.put(block.getLocation(), reason);
                     }
-                    probablyIgnitedThisTick.addAll(blockList);
-                    pendingRemoval.add(tnt);
-                } else if (getConfig().getBoolean("tntminecart.disable-when-target-not-found")) {
-                    e.setCancelled(true);
-                    Collection<Entity> entityCollections = e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 15, 15, 15);
-                    for (Entity entity : entityCollections) {
-                        if (entity instanceof Player)
-                            entity.sendMessage(
-                                    ChatColor.translateAlternateColorCodes('&',
-                                            getConfig().getString("msgs.tntminecart-wont-break-blocks")
-                                    )
-                            );
-                    }
+                    pendingRemoval.add(entity);
+                } else if (section.getBoolean("disable-unknown")) {
+                    e.blockList().clear();
+                    Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
+                }
+            }
+            pendingRemoval.forEach(probablyCache::invalidate);
+            return;
+        }
+        if (track == null || track.isEmpty()) {
+            if (e.getEntity() instanceof Mob && ((Mob) e.getEntity()).getTarget() != null)
+                track = ((Mob) e.getEntity()).getTarget().getName();
+        }
+        // No matches, plugin explode or cannot to track?
+        if (track == null || track.isEmpty()) {
+            EntityDamageEvent cause = e.getEntity().getLastDamageCause();
+            if (cause != null) {
+                if (cause instanceof EntityDamageByEntityEvent) {
+                    track = "#" + e.getEntity().getName() + "-" + ((EntityDamageByEntityEvent) cause).getDamager().getName();
                 }
             }
         }
-        pendingRemoval.forEach(explosionSources::remove);
+
+        if (track != null && !track.isEmpty()) {
+            for (Block block : e.blockList()) {
+                api.logRemoval(track, block.getLocation(), block.getType(), block.getBlockData());
+            }
+        } else if (section.getBoolean("disable-unknown")) {
+            e.blockList().clear();
+            e.getEntity().remove();
+            Util.broadcastNearPlayers(entity.getLocation(), section.getString("alert"));
+        }
     }
 }
